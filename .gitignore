@@ -1,0 +1,11 @@
+# Generated outputs — re-run notebooks to reproduce
+figures/
+data/
+
+# Cloned repos (Part B mining)
+repos/
+
+# Colab/Jupyter artifacts
+.ipynb_checkpoints/
+__pycache__/
+*.pyc
