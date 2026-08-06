@@ -1,4 +1,4 @@
-# Beyond Gut Feel: Empirical Evidence That Machine Learning Outperforms Developer Intuition in Observability Decisions
+# Beyond Gut Feel: Empirical Evidence That Machine Learning Outperforms Default Rule-Based Practice in Observability Decisions
 
 ---
 
@@ -18,7 +18,7 @@ Our contributions are:
 
 1. **The first explicit empirical comparison of rule-based heuristics and machine learning for observability decisions**, spanning both anomaly detection and log-level selection, with baselines designed to approximate current default practice.
 2. **Evidence that feature waste is substantial in monitoring pipelines**: an ablation study removes 53% of manually engineered features (within a multi-window rolling-statistic feature set) with no loss in anomaly detection performance, and SHAP analysis reveals that no universal feature ranking exists across KPIs.
-3. **A log-level classifier that generalises across projects without relying on message text**: trained on open-source repositories and evaluated on unseen repositories, the model achieves a macro F1 of 0.89 using only code context and structural features, compared to 0.37 for a keyword-heuristic baseline - with a feature ablation confirming that the performance is not driven by lexical co-occurrence.
+3. **A log-level classifier that generalises across projects without relying on message text**: trained on open-source repositories and evaluated on unseen repositories, the model achieves a macro F1 of 0.89 using only code context and structural features, compared to 0.37 for a keyword-heuristic baseline - with a feature ablation confirming that the performance is not driven by log-message wording.
 4. **Evidence of systematic inconsistency in developer logging decisions**: error analysis reveals that individual developer log-level choices deviate from corpus-wide norms, with the model surfacing cases where the same structural context receives different labels across projects.
 
 The remainder of this paper is structured as follows. Section 2 reviews related work in KPI anomaly detection, log-level prediction, and AIOps. Section 3 describes the datasets, feature engineering, models, and evaluation methodology for both studies. Section 4 presents the experimental results. Section 5 discusses implications, limitations, and practical applications. Section 6 analyses threats to validity. Section 7 concludes the paper.
@@ -33,7 +33,7 @@ These studies share a common evaluation pattern: they benchmark proposed algorit
 
 ### 2.2 Log-Level Prediction and Logging Practices
 
-A related line of work has studied logging practices in software projects. Li et al. [5] used topic models to analyse logging decisions in Java-based open-source projects, identifying correlations between code context and log verbosity. Chen and Jiang [6] characterised logging practices across Apache Software Foundation projects, finding significant variation in logging density, level distribution, and modification frequency across projects and developers. Li et al. [7] studied where developers place log statements within code blocks, proposing a recommendation model for log placement.
+A related line of work has studied logging practices in software projects. He et al. [5] characterised the natural language descriptions in log statements. Chen and Jiang [6] studied logging practices across Apache Software Foundation projects, finding significant variation in logging density, level distribution, and modification frequency across projects and developers. Zhu et al. [7] proposed a model to help developers make informed logging decisions, and Yuan et al. [9] characterised logging practices in open-source software.
 
 More directly related to our work, Li et al. [10] framed log-level suggestion as an ordinal regression problem, training models on Java projects to recommend DEBUG, INFO, WARN, or ERROR based on code context features such as block type, log text content, and surrounding method characteristics. Li et al. [11] extended this line with DeepLV, a deep-learning approach that embeds syntactic and semantic features for the same task. These studies show that log-level selection is not arbitrary. It correlates with code structure, error-handling patterns, and surrounding context in ways that models can learn.
 
@@ -43,17 +43,17 @@ However, the existing log-level prediction literature has three gaps that our Pa
 
 Effective anomaly detection depends on both model selection and feature quality. In production, engineering teams typically pick features based on operational experience, choosing rolling averages, percentile calculations, or rate-of-change signals that worked in past incidents. This process is rarely evaluated empirically: features get added but seldom removed, leading to signal redundancy.
 
-The machine learning literature provides extensive methods for feature selection, including filter methods, wrapper methods, and embedded importance measures [8]. However, these techniques have been studied primarily on standard classification and regression benchmarks, not on telemetry time-series data where class imbalance is extreme (anomaly rates below 3%) and feature interactions are KPI-specific. Our ablation study in Part A applies systematic feature removal to monitoring features specifically, measuring the point at which removing manually engineered features begins to degrade detection performance. The finding that 53% of features can be removed without hurting performance is direct evidence of feature waste, with clear implications for how monitoring pipelines are built.
+The machine learning literature provides well-established methods for feature selection, including filter methods, wrapper methods, and embedded importance measures [8]. However, these techniques have been studied primarily on standard classification and regression benchmarks, not on telemetry time-series data where class imbalance is extreme (anomaly rates below 3%) and feature interactions are KPI-specific. Our ablation study in Part A applies systematic feature removal to monitoring features specifically, measuring the point at which removing manually engineered features begins to degrade detection performance. The finding that 53% of features can be removed without hurting performance is direct evidence of feature waste, with clear implications for how monitoring pipelines are built.
 
 ### 2.4 Explainability in AIOps
 
-As ML models get deployed in operational settings, the need for explainable decisions grows with them. SHAP (SHapley Additive exPlanations) [9], based on cooperative game theory, provides a principled method for attributing model predictions to individual input features. SHAP has been applied to a range of domains including healthcare, finance, and natural language processing, but its application to AIOps remains limited.
+As ML models get deployed in operational settings, the need for explainable decisions grows with them. SHAP (SHapley Additive exPlanations) [12], based on cooperative game theory, provides a principled method for attributing model predictions to individual input features. SHAP has been applied to a range of domains including healthcare, finance, and natural language processing, but its application to AIOps remains limited.
 
 In the context of anomaly detection, explainability serves a dual purpose: it helps operators understand *why* a specific data point was flagged, and it reveals which monitoring signals carry the most diagnostic value. Our use of SHAP in Part A serves the latter purpose - rather than explaining individual predictions, we use SHAP to compare feature importance rankings across KPIs. The finding that these rankings vary substantially across KPIs challenges the assumption that a single "best practice" feature set can serve as a universal monitoring configuration.
 
 ### 2.5 Summary
 
-Existing research has advanced anomaly detection algorithms and characterised logging practices, but four gaps remain. No study benchmarks ML anomaly detection against the static-threshold baselines developers deploy. No log-level study covers the Node.js/TypeScript ecosystem or evaluates cross-project generalisation. No work quantifies feature waste in monitoring pipelines through systematic ablation. And no study unifies anomaly detection and log-level prediction under a common framing that explicitly tests whether default rule-based practice is outperformed by learned models. This paper addresses all four gaps through a two-part empirical study.
+Existing research has advanced anomaly detection algorithms and characterised logging practices, but four gaps remain. To our knowledge, no study benchmarks ML anomaly detection against the static-threshold baselines developers deploy. No log-level study covers the Node.js/TypeScript ecosystem or evaluates cross-project generalisation with entire repositories held out. We are not aware of work that quantifies feature waste in monitoring pipelines through systematic ablation. And we have not found a study that unifies anomaly detection and log-level prediction under a common framing that explicitly tests whether default rule-based practice is outperformed by learned models. This paper addresses all four gaps through a two-part empirical study.
 
 ## 3. Methodology
 
@@ -71,17 +71,15 @@ We selected this dataset for three reasons. First, it is the most widely used pu
 
 #### 3.2.2 Feature Engineering
 
-From each KPI's raw time series, we derive 19 features organised into four groups:
+From each KPI's raw time series, we derive features organised into four groups:
 
 **Rolling statistics** (window sizes 5, 15, and 30 minutes): For each window size *w*, we compute the rolling mean, standard deviation, minimum, maximum, and range (max - min) over the preceding *w* data points. These capture short-, medium-, and longer-term trends in the KPI's behaviour. A sudden deviation from the rolling mean, for example, may indicate an anomaly - but whether it does depends on the KPI and the window size, which is precisely what the model learns.
 
 **Distributional feature**: The z-score, defined as (*value* - *rolling_mean*) / *rolling_std*, measures how many standard deviations the current value lies from the recent mean. This is the feature most commonly used in manual threshold rules, making it a direct point of comparison between rule-based and learned approaches.
 
-**Temporal features**: The rate of change (difference between consecutive values) and lag features at offsets *t*-1, *t*-5, and *t*-15 capture momentum and periodicity. An accelerating metric behaves differently from one that is elevated but stable.
+**Temporal features**: The rate of change (difference between consecutive values) and lag features at offsets *t*-5 and *t*-15 capture momentum and periodicity. An accelerating metric behaves differently from one that is elevated but stable.
 
-**Raw value**: The KPI value itself, included because some anomalies are detectable only from the absolute magnitude (e.g., a count metric dropping to zero).
-
-In total, the feature set comprises 15 rolling statistics (5 statistics x 3 windows), 1 z-score, 3 lag features, and the raw value, yielding 19 features per data point after excluding the initial window warm-up period.
+In total, the feature set comprises 15 rolling statistics (5 statistics x 3 windows), 1 z-score, and 3 temporal features (rate of change, lag-5, lag-15), yielding **19** features per data point after excluding the initial window warm-up period. The exact feature count should be verified against the notebook output on re-run, as the raw KPI value may or may not be included as a separate column depending on the implementation.
 
 #### 3.2.3 Static-Threshold Baseline
 
@@ -107,7 +105,7 @@ To quantify feature waste, we conduct an ablation study. We rank all 19 features
 
 #### 3.2.6 SHAP Analysis
 
-We apply SHAP (SHapley Additive exPlanations) [9] to the best-performing model for representative KPIs selected to span different distribution types (periodic, trend-stationary, and bursty). For each KPI, we generate beeswarm plots showing the direction and magnitude of each feature's contribution to predictions, and dependence plots showing feature interactions. The primary analytical question is whether feature importance rankings are consistent across KPIs or KPI-specific - a finding with direct implications for whether a universal monitoring configuration is feasible.
+We apply SHAP (SHapley Additive exPlanations) [12] to the best-performing model for representative KPIs selected to span different distribution types (periodic, trend-stationary, and bursty). For each KPI, we generate beeswarm plots showing the direction and magnitude of each feature's contribution to predictions, and dependence plots showing feature interactions. The primary analytical question is whether feature importance rankings are consistent across KPIs or KPI-specific - a finding with direct implications for whether a universal monitoring configuration is feasible.
 
 ### 3.3 Part B - Log-Level Classification
 
@@ -193,11 +191,15 @@ To diagnose this, we conduct a feature ablation study. We train XGBoost under fi
 
 1. **Full**: Context TF-IDF + Message TF-IDF + Structural + File type (715 features)
 2. **No message**: Context TF-IDF + Structural + File type (515 features) - removes the potentially leaked signal
-3. **Structural + file type only**: 15 features - tests whether pure code structure predicts level
+3. **Structural + file type only**: 8 structural + file-type dummies - tests whether pure code structure predicts level
 4. **Message TF-IDF only**: 200 features - tests whether the model is essentially a richer keyword matcher
 5. **Context TF-IDF only**: 500 features - isolates the contribution of surrounding code
 
-Each condition is evaluated in both the cross-validation and cross-project settings. If the "no message" condition retains strong performance, the model genuinely learns from code context rather than message wording; if it collapses, the reported F1 reflects lexical co-occurrence and should be interpreted accordingly.
+Additionally, we run a sixth condition:
+
+6. **No level names**: Context TF-IDF (with tokens matching level names stripped from the vocabulary: `warn`, `debug`, `error`, `info`, `log`, `logger`, `console`, and bigrams containing them) + Structural + File type - tests whether the context signal survives after removing neighbouring log-level tokens
+
+Each condition is evaluated in both the cross-validation and cross-project settings. If the "no message" condition retains strong performance, the model learns from code context rather than message wording. If the "no level names" condition also holds, the context signal is genuinely structural; if it collapses toward the structural-only baseline, the finding narrows to "log levels cluster within files."
 
 ### 3.4 Evaluation Metrics
 
@@ -216,7 +218,7 @@ All random seeds are fixed at 42 for reproducibility.
 
 Before presenting the main comparison, we report a preliminary experiment that motivated a core design decision. We trained a single Random Forest classifier on all 26 KPIs pooled together, using the same 19 features described in Section 3.2.2. This pooled model achieved a macro F1 of 0.08 - barely above random chance for a binary classification task.
 
-Switching to per-KPI models - training an independent model for each of the 26 KPIs - increased the mean macro F1 to 0.41, a five-fold improvement in absolute terms. The pooled model's failure reflects the heterogeneity of the KPI population: the 26 KPIs span different metric types (latency, throughput, error rate, utilisation), operate on different numerical scales, and exhibit different distributional shapes. A decision boundary learned from one KPI's feature space does not transfer to another's.
+Switching to per-KPI models - training an independent model for each of the 26 KPIs - increased the mean macro F1 to 0.41, a five-fold relative improvement. The pooled model's failure reflects the heterogeneity of the KPI population: the 26 KPIs span different metric types (latency, throughput, error rate, utilisation), operate on different numerical scales, and exhibit different distributional shapes. A decision boundary learned from one KPI's feature space does not transfer to another's.
 
 We report this negative result because it establishes an empirical fact relevant to monitoring practice: anomaly detection models should be trained per-metric, not per-system. A universal model that treats all KPIs identically is not merely suboptimal - it approaches random performance.
 
@@ -265,7 +267,7 @@ We note that this feature set was constructed with multi-window rolling statisti
 
 ### 4.4 Part A - SHAP: Feature Importance Varies Across KPIs
 
-SHAP analysis of per-KPI models revealed that the most influential features for anomaly detection differ substantially across KPIs. No single feature ranked in the top 3 across all analysed KPIs.
+SHAP analysis of per-KPI models (applied to 6 representative KPIs spanning periodic, trend-stationary, and bursty distributions) revealed that the most influential features for anomaly detection differ across KPIs. No single feature ranked in the top 3 across all 6 analysed KPIs.
 
 For the representative KPIs analysed, feature rankings showed clear variation. The top-ranked features for one KPI (e.g., z-score, rolling standard deviation) did not occupy the same positions for other KPIs, where rate of change, lag features, or the raw value dominated instead. The specific feature rankings for each analysed KPI are shown in Figure 5.
 
@@ -300,7 +302,7 @@ The confusion matrix (Figure 7) shows that XGBoost achieves near-uniform accurac
 
 Before reporting the cross-project results, we present the feature ablation study designed to test whether the model's performance reflects genuine structural prediction or lexical co-occurrence between log message wording and log level.
 
-Table 4 reports the results under five feature conditions in both the cross-validation and cross-project settings.
+Table 4 reports the results under five feature conditions in both the cross-validation and cross-project settings. Note: the "Full" CV F1 here (0.962) differs slightly from Table 3's XGBoost result (0.970) because the ablation uses a separate training run with *n_estimators*=200 and *max_depth*=8, while Table 3 uses *n_estimators*=300 and *max_depth*=10. The relative ordering and ablation deltas are what matter, not the absolute value.
 
 **Table 4.** Feature ablation - macro F1 under each feature condition.
 
@@ -340,7 +342,7 @@ Table 5 reports the cross-project evaluation using the "no message" model (conte
 
 *Note: Per-repo breakdowns should be filled in from a consistent dataset run. Overall figures are from the ablation experiment on the current dataset.*
 
-The model achieves a macro F1 of 0.892 on repositories it has never seen, spanning three different application domains. The keyword heuristic remains flat at approximately 0.37 regardless of the target repository. The gap between the heuristic and the learned model is consistent across all three test repositories, indicating that the model captures cross-project patterns rather than overfitting to the training repositories' conventions.
+The model achieves an overall macro F1 of 0.892 on repositories it has never seen, spanning three different application domains. The keyword heuristic remains flat at approximately 0.37 regardless of the target repository. Per-repo F1 breakdowns will confirm whether this gap is consistent across all three test repositories or concentrated in specific domains; these values should be filled from the final re-run.
 
 [Figure 10: Cross-project generalisation - heuristic vs XGBoost per repo]
 
@@ -352,7 +354,7 @@ The highest-ranked structural feature is `in_catch` at rank 16 (importance 0.018
 
 [Figure 11: Top 25 features for log-level prediction, color-coded by type]
 
-The dominance of code-context features is consistent with the ablation finding: context TF-IDF alone achieves 0.873 cross-project F1, while structural features alone achieve 0.446. The model learns primarily from *what code surrounds* the log statement - the presence of other logger calls, error-handling constructs, and API patterns - rather than from the *content* of the message or the *structural position* of the statement in isolation.
+The dominance of code-context features is consistent with the ablation finding: context TF-IDF alone achieves 0.873 cross-project F1, while structural features alone achieve 0.446. However, the identity of the top features reveals an important nuance: `ctx:warn`, `ctx:debug`, `ctx:logger debug`, and `ctx:logger warn` are *level names of neighbouring log statements* captured in the +/-5 line context window. The model is partly learning to predict a log statement's level from the levels of nearby log calls. This is a form of context signal - neighbouring levels reflect the code's error-handling structure - but it is a narrower finding than "the model learns arbitrary code patterns." Section 6.2 discusses this as a confound, and Section 3.3.7 describes a level-name-stripped ablation designed to measure how much signal remains after removing these tokens.
 
 ### 4.9 Part B - Inconsistency Analysis
 
@@ -386,7 +388,7 @@ The Part B ablation study (Section 4.6) produced the strongest finding of this w
 
 Removing message TF-IDF reduced cross-project F1 by only 0.005 (from 0.897 to 0.892). Conversely, message TF-IDF alone (0.335) performed worse than the keyword heuristic (0.368) on unseen repositories. Context TF-IDF alone achieved 0.873 - within 0.024 of the full model.
 
-This means the model is not doing sophisticated keyword matching. It is learning patterns in the code that *surrounds* log statements: the presence of other logger calls at specific levels, error-handling constructs, try/catch nesting patterns, and API usage idioms. These patterns generalise across projects because they reflect shared conventions in the Node.js/TypeScript ecosystem - conventions that developers follow implicitly but that a keyword heuristic cannot capture.
+The ablation rules out log-message keyword matching: the model does not depend on wording like "failed" or "error" in the message string. However, the context TF-IDF *is* a form of token matching - and as Section 4.8 shows, the most predictive context tokens are the level names of neighbouring log calls (`ctx:warn`, `ctx:debug`, etc.). So the model's primary signal is the logging context of the surrounding code: what levels nearby log statements use, what error-handling constructs are present, and what API patterns appear. These context-level patterns generalise across projects because they reflect shared conventions in the Node.js/TypeScript ecosystem. Whether the signal survives after stripping level-name tokens from the context vocabulary is tested in a separate ablation (Section 3.3.7).
 
 Practically, a log-level recommendation tool does not need the log message text - code context alone is enough. This matters when message content contains sensitive data or when the message has not been written yet at the point where a level recommendation would be useful.
 
@@ -410,7 +412,7 @@ Our results identify two boundary conditions where ML models do not outperform s
 
 **Sparse anomalies in Part A.** The 2 KPIs where the static threshold outperformed ML had extremely low anomaly rates. In these settings, supervised models lack sufficient positive examples to learn a meaningful decision boundary, and unsupervised models struggle to distinguish rare anomalies from rare-but-normal variation. The static threshold, which requires no training data, retains an advantage here. This suggests a practical decision rule: for KPIs with very few historical anomalies, simple statistical thresholds may be preferable until sufficient anomaly data accumulates.
 
-**Structural features alone in Part B.** When restricted to the 15 structural and file-type features (no TF-IDF), the model achieved a cross-project F1 of 0.446 - only modestly above the keyword heuristic (0.368). Pure structural signals (in_catch, has_throw, in_conditional) carry some predictive value but are insufficient on their own. The strong performance of the full model depends on the richer code-context patterns captured by TF-IDF. This suggests that log-level recommendation tools require access to surrounding source code, not just AST-level structural metadata.
+**Structural features alone in Part B.** When restricted to the structural and file-type features only (no TF-IDF), the model achieved a cross-project F1 of 0.446 - only modestly above the keyword heuristic (0.368). Pure structural signals (in_catch, has_throw, in_conditional) carry some predictive value but are insufficient on their own. The strong performance of the full model depends on the richer code-context patterns captured by TF-IDF. This suggests that log-level recommendation tools require access to surrounding source code, not just AST-level structural metadata.
 
 ### 5.6 Limitations
 
@@ -442,7 +444,7 @@ Construct validity asks whether our measurements actually capture the concepts w
 
 Internal validity asks whether the results are actually caused by the experimental variables or by confounding factors.
 
-**Data leakage in Part B.** A primary concern is whether the model exploits signals that would not be available in a real deployment scenario. We addressed the most obvious leakage risk - log message text co-determined with the log level - through the feature ablation study (Section 4.6), which showed that removing message TF-IDF reduces cross-project F1 by only 0.005. However, a subtler form of leakage exists in the code-context TF-IDF: the surrounding code may contain *other* log statements at specific levels (e.g., `logger.warn(...)` appearing two lines above a `logger.error(...)` call). The model may learn to predict the level of one log statement from the level-names of neighbouring statements. This is arguably a legitimate signal - the surrounding logging context genuinely informs the appropriate level - but it inflates performance relative to a scenario where no prior logging exists in the surrounding code. We note this as a potential confound without a clean mitigation.
+**Data leakage in Part B.** A primary concern is whether the model exploits signals that would not be available in a real deployment scenario. We addressed the most obvious leakage risk - log message text co-determined with the log level - through the feature ablation study (Section 4.6), which showed that removing message TF-IDF reduces cross-project F1 by only 0.005. A confirmed form of leakage exists in the code-context TF-IDF: the surrounding code contains *other* log statements at specific levels (e.g., `logger.warn(...)` appearing two lines above a `logger.error(...)` call), and the top features by importance (`ctx:warn`, `ctx:debug`, `ctx:logger warn`) are exactly these neighbouring level names (Section 4.8). The model partly predicts the level of one log statement from the levels of its neighbours. This is arguably a legitimate signal - the surrounding logging context genuinely informs the appropriate level - but it inflates performance relative to a scenario where no prior logging exists in the surrounding code. We address this through a level-name-stripped ablation (Section 3.3.7): removing tokens matching `warn`, `debug`, `error`, `info`, `logger.*`, and `console.*` from the context vocabulary and re-running the cross-project evaluation. If the "no level names" model retains strong performance, the signal is genuinely structural; if it collapses toward the structural-only baseline (0.446), the honest finding is that log levels cluster within files and that clustering generalises.
 
 **CSV formatting corruption.** The log-level dataset was serialised as CSV, and code context containing commas and newlines caused row-level corruption. We filtered corrupted rows by retaining only those with valid log levels in {DEBUG, INFO, WARN, ERROR}. This filtering may introduce bias if corrupted rows are systematically different from retained rows - for instance, log statements in more syntactically complex code are likelier to produce problematic characters and be dropped, potentially biasing the dataset toward simpler contexts. We report the number of rows lost to corruption and note that future work should use a format less susceptible to this issue (e.g., JSONL).
 
@@ -466,9 +468,9 @@ External validity asks whether these findings hold beyond the specific datasets 
 
 This paper presented a two-part empirical study measuring the cost of rule-based heuristics in observability decisions and how much machine learning can reduce it.
 
-In **Part A** (KPI anomaly detection), we evaluated static-threshold baselines (μ ± 3σ) and per-KPI machine learning models on the AIOps 2018 benchmark - 26 KPIs comprising 2.67 million labelled data points. Per-KPI models achieved a median F1 of 0.41, compared to 0.18 for static thresholds (Table 2). The improvement was not uniform: KPIs with bursty or periodic patterns benefited most, while KPIs with extremely low anomaly rates remained difficult for both approaches. Feature ablation revealed that 53% of the multi-window rolling-statistic features could be removed with no loss in detection performance (Section 4.3), and SHAP analysis confirmed that no single feature ranking generalises across KPIs - each KPI's decision surface depends on its own distributional characteristics (Section 4.4, Figures 5-6).
+In **Part A** (KPI anomaly detection), we evaluated static-threshold baselines (μ ± 3σ) and per-KPI machine learning models on the AIOps 2018 benchmark - 26 KPIs comprising 2.67 million labelled data points. ML models outperformed the static threshold on 20 of 22 non-tied KPIs (91%), with the remaining 2 losses occurring on KPIs with extremely low anomaly rates (Table 1). Per-KPI models achieved a mean F1 of 0.41, compared to 0.08 for a pooled model (Section 4.1). The improvement was not uniform: KPIs with bursty or periodic patterns benefited most, while extremely sparse anomalies remained difficult for both approaches. Feature ablation revealed that 53% of the multi-window rolling-statistic features could be removed with no loss in detection performance (Table 2), and SHAP analysis confirmed that no single feature ranking generalises across KPIs (Section 4.4, Figures 5-6).
 
-In **Part B** (log-level classification), we mined 16,283 log statements from 15 open-source Node.js and TypeScript repositories and trained classifiers to predict the developer-chosen log level from code context. A Random Forest model achieved a cross-validated macro F1 of 0.91 (Table 3), compared to 0.37 for a keyword-heuristic baseline that maps six common substrings to severity levels. The model generalised to three entirely unseen repositories with a cross-project macro F1 of 0.89 (Table 4). A feature ablation study confirmed that this performance is driven by code context - structural features such as enclosing block type, nesting depth, and surrounding code patterns - rather than log message text: removing message TF-IDF reduced cross-project F1 by only 0.005, while a message-only model (F1 = 0.34) performed worse than the keyword heuristic (Section 4.6, Table 6). Error analysis identified systematic inconsistencies in developer log-level choices, where the same structural context received different severity labels across projects (Section 4.9).
+In **Part B** (log-level classification), we mined 16,283 log statements from 15 open-source Node.js and TypeScript repositories and trained classifiers to predict the developer-chosen log level from code context. XGBoost achieved a cross-validated macro F1 of 0.970 (Table 3), compared to 0.379 for a keyword-heuristic baseline. We adopt the "no message" model as our primary result: after removing log-message TF-IDF features, cross-project macro F1 dropped by only 0.005 to 0.892 (Table 4), confirming that the performance is not driven by message wording. A message-only model (cross-project F1 = 0.335) performed worse than the keyword heuristic (0.368). The model generalised to three entirely unseen repositories (Table 5). Error analysis identified systematic inconsistencies in developer log-level choices, where the same structural context received different severity labels across projects (Section 4.9).
 
 These findings support three conclusions:
 
@@ -476,7 +478,7 @@ These findings support three conclusions:
 
 2. **Per-entity specialisation matters more than algorithm sophistication.** In Part A, the shift from pooled to per-KPI modelling improved F1 from 0.08 to 0.41 - a larger gain than any algorithmic change. In Part B, the model's strength comes from learning project-specific patterns (code structure, function naming, error-handling idioms) rather than from a more powerful classifier. The implication for practice is that observability tools should fit to the specific system they monitor, not apply one-size-fits-all rules.
 
-3. **Code context, not message text, carries the signal for log-level decisions.** The ablation study is the strongest single finding of Part B: developers' log-level choices are predictable from the structural properties of the code - whether the statement is in a catch block, what function it belongs to, how deeply it is nested - not from the human-readable message string. This suggests that automated log-level recommendation tools should focus on program analysis rather than natural-language processing of log messages.
+3. **Code context, not message text, carries the signal for log-level decisions.** The ablation study shows that log-message wording is not needed: removing it drops cross-project F1 by only 0.005. The signal comes from code context, including the levels of neighbouring log statements, error-handling constructs, and API patterns. The level-name-stripped ablation (Section 3.3.7) will determine whether the context signal is broadly structural or primarily driven by neighbouring log levels. Either way, automated log-level recommendation tools should focus on surrounding code, not on the message string.
 
 ### Future Work
 
@@ -486,7 +488,7 @@ A replication package with all datasets, notebooks, and trained models will be p
 
 ## References
 
-[1] AIOps Challenge, "KPI Anomaly Detection Dataset," Tsinghua NetMan Lab, 2018.
+[1] AIOps Challenge, "KPI Anomaly Detection Dataset," Tsinghua NetMan Lab, 2018. Available: https://github.com/NetManAIOps/KPI-Anomaly-Detection
 
 [2] H. Xu et al., "Unsupervised Anomaly Detection via Variational Auto-Encoder for Seasonal KPIs in Web Applications," *Proc. WWW*, 2018.
 
@@ -496,17 +498,17 @@ A replication package with all datasets, notebooks, and trained models will be p
 
 [5] S. He et al., "Characterizing the Natural Language Descriptions in Software Logging Statements," *Proc. ASE*, 2018.
 
-[6] Z. Li et al., "Which Log Level Should Developers Choose for a New Logging Statement?," *Empirical Software Engineering*, 2017.
+[6] B. Chen and Z. M. Jiang, "Characterizing Logging Practices in Java-Based Open Source Software Projects - A Replication Study in Apache Software Foundation," *Empirical Software Engineering*, vol. 22, no. 1, 2017.
 
-[7] B. Chen and Z. M. Jiang, "Characterizing Logging Practices in Java-Based Open Source Software Projects - A Replication Study in Apache Software Foundation," *Empirical Software Engineering*, 2017.
+[7] J. Zhu et al., "Learning to Log: Helping Developers Make Informed Logging Decisions," *Proc. ICSE*, 2015.
 
-[8] P. He et al., "Characterizing the Natural Language Descriptions in Software Logging Statements," *Proc. ASE*, 2018.
+[8] I. Guyon and A. Elisseeff, "An Introduction to Variable and Feature Selection," *Journal of Machine Learning Research*, vol. 3, 2003.
 
-[9] J. Zhu et al., "Learning to Log: Helping Developers Make Informed Logging Decisions," *Proc. ICSE*, 2015.
+[9] D. Yuan et al., "Characterizing Logging Practices in Open-Source Software," *Proc. ICSE*, 2012.
 
-[10] Q. Fu et al., "Where Do Developers Log? An Empirical Study on Logging Practices in Industry," *Proc. ICSE Companion*, 2014.
+[10] Z. Li, T.-H. Chen, J. Yang, and W. Shang, "Which Log Level Should Developers Choose for a New Logging Statement?," *Empirical Software Engineering*, vol. 22, no. 4, 2017.
 
-[11] D. Yuan et al., "Characterizing Logging Practices in Open-Source Software," *Proc. ICSE*, 2012.
+[11] Z. Li et al., "DeepLV: Suggesting Log Levels Using Ordinal Based Neural Networks," *Proc. ICSE*, 2021.
 
 [12] S. M. Lundberg and S.-I. Lee, "A Unified Approach to Interpreting Model Predictions," *Proc. NeurIPS*, 2017.
 
@@ -516,4 +518,4 @@ A replication package with all datasets, notebooks, and trained models will be p
 
 [15] T. Chen and C. Guestrin, "XGBoost: A Scalable Tree Boosting System," *Proc. KDD*, 2016.
 
-*Note: Reference numbers are placeholders. Full bibliographic entries will be verified and formatted according to the target venue's citation style prior to submission.*
+*Note: Full bibliographic entries will be verified and formatted according to the target venue's citation style prior to submission. In-text citations now match: [5] = He (ASE 2018, log descriptions), [6] = Chen & Jiang (EMSE 2017, Apache logging practices), [7] = Zhu (ICSE 2015, learning to log), [8] = Guyon (JMLR 2003, feature selection), [10] = Li/Shang (EMSE 2017, log level suggestion), [11] = Li (ICSE 2021, DeepLV), [12] = Lundberg & Lee (NeurIPS 2017, SHAP).*
