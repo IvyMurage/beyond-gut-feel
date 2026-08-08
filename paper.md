@@ -65,21 +65,25 @@ We conduct two complementary empirical studies. Part A evaluates whether machine
 
 #### 3.2.1 Dataset
 
-We use the AIOps 2018 KPI Anomaly Detection dataset released by Tsinghua University's NetMan Lab [1]. The dataset contains 2.67 million data points across 26 KPIs collected from real internet-company infrastructure. Each data point consists of a timestamp, a KPI value, and a binary anomaly label assigned by site reliability engineers. The scrape interval is approximately one minute. The overall anomaly rate is 2.16%, with individual KPIs ranging from 0.30% to 8.83%.
+We use the AIOps 2018 KPI Anomaly Detection dataset released by Tsinghua University's NetMan Lab [1]. The dataset contains 2.67 million data points across 26 KPIs collected from real internet-company infrastructure. Each data point consists of a timestamp, a KPI value, and a binary anomaly label assigned by site reliability engineers. The scrape interval is approximately one minute. The overall anomaly rate is 2.16%, with individual KPIs ranging from 0.02% to 8.21%.
 
 We selected this dataset for three reasons. First, it is the most widely used public benchmark for KPI anomaly detection, enabling comparison with prior work. Second, the labels were assigned by domain experts, not generated synthetically, providing realistic ground truth. Third, the 26 KPIs exhibit substantial heterogeneity in scale, distribution shape, and anomaly pattern - precisely the diversity needed to test whether a single rule-based approach can generalise.
 
 #### 3.2.2 Feature Engineering
 
-From each KPI's raw time series, we derive features organised into four groups:
+From each KPI's raw time series, we retain the raw value and derive 18 additional features organised into five groups:
 
-**Rolling statistics** (window sizes 5, 15, and 30 minutes): For each window size *w*, we compute the rolling mean, standard deviation, minimum, maximum, and range (max - min) over the preceding *w* data points. These capture short-, medium-, and longer-term trends in the KPI's behaviour. A sudden deviation from the rolling mean, for example, may indicate an anomaly - but whether it does depends on the KPI and the window size, which is precisely what the model learns.
+**Rolling statistics** (9 features): Rolling mean and standard deviation at window sizes 5, 15, and 30 minutes (6 features), plus rolling minimum, maximum, and range (max - min) at window size 15 (3 features). The mean and standard deviation at multiple windows capture short-, medium-, and longer-term trends, while the min/max/range at a single window captures the spread of recent values. A sudden deviation from the rolling mean, for example, may indicate an anomaly - but whether it does depends on the KPI and the window size, which is precisely what the model learns.
 
-**Distributional feature**: The z-score, defined as (*value* - *rolling_mean*) / *rolling_std*, measures how many standard deviations the current value lies from the recent mean. This is the feature most commonly used in manual threshold rules, making it a direct point of comparison between rule-based and learned approaches.
+**Deviation features** (3 features): The difference between the current value and the rolling mean at windows 5 and 30 (2 features), and the z-score at window 30, defined as (*value* - *rolling_mean_30*) / *rolling_std_30*, which measures how many standard deviations the current value lies from the recent mean. The z-score is the feature most commonly used in manual threshold rules, making it a direct point of comparison between rule-based and learned approaches.
 
-**Temporal features**: The rate of change (difference between consecutive values) and lag features at offsets *t*-5 and *t*-15 capture momentum and periodicity. An accelerating metric behaves differently from one that is elevated but stable.
+**Rate-of-change features** (2 features): The difference between consecutive values (rate of change) and its absolute value. These capture the speed and magnitude of change regardless of direction. An accelerating metric behaves differently from one that is elevated but stable.
 
-In total, the feature set comprises 15 rolling statistics (5 statistics x 3 windows), 1 z-score, and 3 temporal features (rate of change, lag-5, lag-15), yielding **19** features per data point after excluding the initial window warm-up period. The exact feature count should be verified against the notebook output on re-run, as the raw KPI value may or may not be included as a separate column depending on the implementation.
+**Lag features** (4 features): The raw KPI value at offsets *t*-1, *t*-2, *t*-3, and *t*-5, capturing short-term momentum and periodicity patterns.
+
+**Raw value** (1 feature): The unmodified KPI value at time *t*, included as a reference for the derived features.
+
+In total, the feature set comprises 9 rolling statistics, 3 deviation features (2 diff-from-mean + 1 z-score), 2 rate-of-change features, 4 lag features, and 1 raw value, yielding **19** features per data point after excluding the initial window warm-up period.
 
 #### 3.2.3 Static-Threshold Baseline
 
@@ -91,7 +95,7 @@ This baseline captures the *statistical logic* behind many production alerting r
 
 For each of the 26 KPIs, we independently train two models:
 
-**Random Forest classifier** (*n_estimators*=200, *max_depth*=20, *class_weight*='balanced', *random_state*=42). Random Forest builds an ensemble of decision trees, each trained on a random subset of the data and features, and predicts via majority vote. We set *class_weight*='balanced' to address class imbalance by assigning higher weight to the minority (anomaly) class during training. This is essential given anomaly rates as low as 0.30%.
+**Random Forest classifier** (*n_estimators*=200, *max_depth*=20, *class_weight*='balanced', *random_state*=42). Random Forest builds an ensemble of decision trees, each trained on a random subset of the data and features, and predicts via majority vote. We set *class_weight*='balanced' to address class imbalance by assigning higher weight to the minority (anomaly) class during training. This is essential given anomaly rates as low as 0.02%.
 
 **Isolation Forest** (*n_estimators*=200, *contamination* set to each KPI's observed anomaly rate, *random_state*=42). Unlike Random Forest, which learns to classify labelled examples, Isolation Forest is an unsupervised method that identifies anomalies by measuring how easily data points can be isolated through random binary partitions. Anomalous points, being rare and different, require fewer partitions to isolate. We include this model to test whether an unsupervised approach - which makes no use of the anomaly labels during training - can still outperform a static threshold.
 
@@ -261,7 +265,7 @@ Table 2 reports the ablation study, in which features were progressively removed
 
 Removing the 10 least-important features (53% of the feature set) *improved* the mean F1 from 0.4065 to 0.4142. Performance degraded only when more than 10 features were removed, with the 6-feature configuration dropping below the full-feature baseline. The majority of cumulative importance was concentrated in a subset of features, with the remainder contributing negligibly.
 
-We note that this feature set was constructed with multi-window rolling statistics (5 statistics x 3 windows), which introduces redundancy by design - rolling mean at window 5 is correlated with rolling mean at window 15. The 53% removal rate therefore reflects redundancy within this specific feature engineering approach, not a universal claim about all monitoring pipelines. Nevertheless, the result demonstrates that adding features without evaluating their marginal contribution can actively harm detection performance through overfitting to noise.
+We note that this feature set was constructed with multi-window rolling statistics (mean and standard deviation at 3 windows, plus min/max/range at one window), which introduces redundancy by design - rolling mean at window 5 is correlated with rolling mean at window 15. The 53% removal rate therefore reflects redundancy within this specific feature engineering approach, not a universal claim about all monitoring pipelines. Nevertheless, the result demonstrates that adding features without evaluating their marginal contribution can actively harm detection performance through overfitting to noise.
 
 [Figure 4: Ablation curve - F1 vs. number of features removed]
 
