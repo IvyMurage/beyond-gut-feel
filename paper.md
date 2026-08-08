@@ -272,9 +272,9 @@ We note that this feature set was constructed with multi-window rolling statisti
 
 ### 4.4 Part A - SHAP: Feature Importance Varies Across KPIs
 
-SHAP analysis of per-KPI models (applied to the best, median, and worst performers by F1) revealed that the most influential features for anomaly detection differ across KPIs. A heatmap of Random Forest feature importances across all 22 evaluable KPIs confirmed this at full scale: no single feature ranked in the top 3 for every KPI.
+SHAP analysis of per-KPI models (applied to the best, median, and worst performers by F1) revealed a nuanced pattern. One feature - `rolling_min_15` (the 15-minute rolling minimum) - ranked first by mean absolute SHAP value for all three representative KPIs, indicating broad utility as an anomaly indicator. However, the remaining feature rankings differed substantially across KPIs. A heatmap of Random Forest feature importances across all 22 evaluable KPIs confirmed this at full scale: no single feature ranked in the top 3 for every KPI.
 
-For the 3 representative KPIs, SHAP rankings showed clear variation. The best performer (KPI 3, F1 = 0.924) relied most heavily on rolling mean and lag features; the median performer (KPI 19, F1 = 0.116) depended on different rolling statistics; and the worst non-zero performer (KPI 15, F1 ~ 0) showed diffuse importance with no dominant feature. The specific feature rankings are shown in Figure 5.
+For the 3 representative KPIs, the best performer (KPI 3, F1 = 0.924) relied on `rolling_min_15`, raw `value`, and `lag_1`; the median performer (KPI 19, F1 = 0.116) depended on `rolling_min_15`, `rolling_std_30`, and `rolling_mean_30`; the worst non-zero performer (KPI 15, F1 ~ 0) showed nearly uniform importance across features, with no clear separation - consistent with its near-zero detection performance. The specific feature rankings are shown in Figure 5. The waterfall plot for a correctly detected anomaly in KPI 3 shows how features combine: `rolling_std_5` (+0.14), `rolling_range_15` (+0.12), and `diff_from_mean_5` (+0.10) jointly push the prediction from a base value of 0.5 to a confidence of 0.994.
 
 [Figure 5: SHAP feature importance comparison across 3 representative KPIs]
 
