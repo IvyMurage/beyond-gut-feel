@@ -258,12 +258,13 @@ Table 2 reports the ablation study, in which features were progressively removed
 | Features retained | Features removed (%) | Mean F1 | Delta  from full |
 |-------------------|---------------------|---------|-------------|
 | 19 (all) | 0% | 0.4065 | baseline |
-| 15 | 21% | 0.4078 | +0.0013 |
-| 12 | 37% | 0.4112 | +0.0047 |
+| 15 | 21% | 0.3989 | -0.0076 |
+| 12 | 37% | 0.4066 | +0.0001 |
 | **9** | **53%** | **0.4142** | **+0.0077** |
-| 6 | 68% | 0.3980 | -0.0085 |
+| 6 | 68% | 0.3876 | -0.0189 |
+| 3 | 84% | 0.3636 | -0.0429 |
 
-Removing the 10 least-important features (53% of the feature set) *improved* the mean F1 from 0.4065 to 0.4142. Performance degraded only when more than 10 features were removed, with the 6-feature configuration dropping below the full-feature baseline. The majority of cumulative importance was concentrated in a subset of features, with the remainder contributing negligibly.
+Removing the 10 least-important features (53% of the feature set) *improved* the mean F1 from 0.4065 to 0.4142. Intermediate removal steps (21% and 37%) stayed within 0.008 of the baseline, showing that these features contribute negligibly. Performance degraded meaningfully only below 9 features: the 6-feature configuration dropped to 0.3876 (-0.019) and the 3-feature configuration to 0.3636 (-0.043). The majority of cumulative importance was concentrated in a subset of features, with the remainder contributing noise that slightly harms detection through overfitting.
 
 We note that this feature set was constructed with multi-window rolling statistics (mean and standard deviation at 3 windows, plus min/max/range at one window), which introduces redundancy by design - rolling mean at window 5 is correlated with rolling mean at window 15. The 53% removal rate therefore reflects redundancy within this specific feature engineering approach, not a universal claim about all monitoring pipelines. Nevertheless, the result demonstrates that adding features without evaluating their marginal contribution can actively harm detection performance through overfitting to noise.
 
