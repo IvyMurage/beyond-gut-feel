@@ -109,7 +109,7 @@ To quantify feature waste, we conduct an ablation study. We rank all 19 features
 
 #### 3.2.6 SHAP Analysis
 
-We apply SHAP (SHapley Additive exPlanations) [12] to the best-performing model for representative KPIs selected to span different distribution types (periodic, trend-stationary, and bursty). For each KPI, we generate beeswarm plots showing the direction and magnitude of each feature's contribution to predictions, and dependence plots showing feature interactions. The primary analytical question is whether feature importance rankings are consistent across KPIs or KPI-specific - a finding with direct implications for whether a universal monitoring configuration is feasible.
+We apply SHAP (SHapley Additive exPlanations) [12] to the best-performing model for 3 representative KPIs selected by detection performance: the best (highest F1), median, and worst (lowest non-zero F1) performers. For each KPI, we generate beeswarm plots showing the direction and magnitude of each feature's contribution to anomaly-class predictions, and bar plots showing mean absolute SHAP values. The primary analytical question is whether feature importance rankings are consistent across KPIs or KPI-specific - a finding with direct implications for whether a universal monitoring configuration is feasible. We supplement the per-KPI SHAP analysis with a heatmap of Random Forest feature importances across all evaluable KPIs to confirm the finding at full scale.
 
 ### 3.3 Part B - Log-Level Classification
 
@@ -272,15 +272,15 @@ We note that this feature set was constructed with multi-window rolling statisti
 
 ### 4.4 Part A - SHAP: Feature Importance Varies Across KPIs
 
-SHAP analysis of per-KPI models (applied to 6 representative KPIs spanning periodic, trend-stationary, and bursty distributions) revealed that the most influential features for anomaly detection differ across KPIs. No single feature ranked in the top 3 across all 6 analysed KPIs.
+SHAP analysis of per-KPI models (applied to the best, median, and worst performers by F1) revealed that the most influential features for anomaly detection differ across KPIs. A heatmap of Random Forest feature importances across all 22 evaluable KPIs confirmed this at full scale: no single feature ranked in the top 3 for every KPI.
 
-For the representative KPIs analysed, feature rankings showed clear variation. The top-ranked features for one KPI (e.g., z-score, rolling standard deviation) did not occupy the same positions for other KPIs, where rate of change, lag features, or the raw value dominated instead. The specific feature rankings for each analysed KPI are shown in Figure 5.
+For the 3 representative KPIs, SHAP rankings showed clear variation. The best performer (KPI 3, F1 = 0.924) relied most heavily on rolling mean and lag features; the median performer (KPI 19, F1 = 0.116) depended on different rolling statistics; and the worst non-zero performer (KPI 15, F1 ~ 0) showed diffuse importance with no dominant feature. The specific feature rankings are shown in Figure 5.
 
-[Figure 5: SHAP beeswarm comparison - representative KPIs showing different feature rankings]
+[Figure 5: SHAP feature importance comparison across 3 representative KPIs]
 
 This variation has a direct practical implication: a monitoring configuration that assigns the same feature weights or alerting logic to all KPIs will underweight the most informative signals for some KPIs and overweight noise for others.
 
-[Figure 6: SHAP dependence plot - feature interactions]
+[Figure 6: Feature importance heatmap across all evaluable KPIs]
 
 ### 4.5 Part B - Log-Level Classification
 
