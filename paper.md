@@ -203,7 +203,7 @@ Additionally, we run a sixth condition:
 
 6. **No level names**: Context TF-IDF (with tokens matching level names stripped from the vocabulary: `warn`, `debug`, `error`, `info`, `log`, `logger`, `console`, and bigrams containing them) + Structural + File type - tests whether the context signal survives after removing neighbouring log-level tokens
 
-Each condition is evaluated in both the cross-validation and cross-project settings. If the "no message" condition retains strong performance, the model learns from code context rather than message wording. If the "no level names" condition also holds, the context signal is genuinely structural; if it collapses toward the structural-only baseline, the finding narrows to "log levels cluster within files."
+Each condition is evaluated in both the cross-validation and cross-project settings. If the "no message" condition retains strong performance, the model learns from code context rather than message wording. The "no level names" condition tests a sharper question: does the context signal survive after removing neighbouring log-level tokens, or does it collapse toward the structural-only baseline, narrowing the finding to "log levels cluster within files"?
 
 ### 3.4 Evaluation Metrics
 
@@ -315,12 +315,13 @@ Table 4 reports the results under five feature conditions in both the cross-vali
 |-----------|----------|-------|-------------------|
 | Full (all features) | 715 | 0.965 | 0.928 |
 | **No message TF-IDF** | **515** | **0.958** | **0.921** |
+| No level names | 459 | 0.710 | 0.519 |
 | Context TF-IDF only | 500 | 0.936 | 0.907 |
 | Structural + file type only | 15 | 0.634 | 0.460 |
 | Message TF-IDF only | 200 | 0.504 | 0.382 |
 | Keyword heuristic | 6 rules | 0.378 | 0.382 |
 
-Three observations:
+Four observations:
 
 First, removing message TF-IDF reduces cross-project F1 by only 0.006 (from 0.928 to 0.921). The model's performance is almost entirely independent of the log message text. This rules out the concern that the high F1 reflects lexical co-occurrence between error-words in the message and the ERROR label.
 
@@ -328,7 +329,9 @@ Second, message TF-IDF alone (0.382 cross-project) performs no better than the k
 
 Third, the per-class ablation shows no level depends on message text. DEBUG F1 actually *increased* by 0.001 when message features were removed. ERROR dropped by 0.013 and INFO by 0.011 - both negligible. WARN was unchanged.
 
-Based on the ablation, we adopt the "no message" model (macro F1 = 0.921 cross-project) as the primary reported result for Part B. This number is free of the semantic leakage concern and represents a conservative, defensible measure of the model's cross-project generalisation capability.
+Fourth, and most critically, stripping level-name tokens from the context vocabulary collapses cross-project F1 from 0.921 to 0.519 - only modestly above the structural-only baseline (0.460). The 56 removed tokens (e.g., `warn`, `debug`, `error`, `console`, `logger warn`, `console error`) account for the majority of the context signal. This means the model primarily predicts log level from the levels of *neighbouring log statements* in the ±5-line window, not from deeper code-structural patterns. The honest finding is that log levels cluster within files - a `logger.warn(...)` call is more likely to appear near other warning-level statements - and this clustering generalises across projects.
+
+Based on the ablation, we adopt the "no message" model (macro F1 = 0.921 cross-project) as the primary reported result for Part B, but we qualify the interpretation: the context signal is dominated by neighbouring log-level tokens rather than broader code patterns (Section 5.2). The model still substantially outperforms the keyword heuristic even after level-name stripping (0.519 vs. 0.382), indicating that some non-trivial structural signal remains.
 
 [Figure 9: Feature ablation bar chart - CV and cross-project side by side]
 
@@ -359,7 +362,7 @@ The highest-ranked structural feature is `in_catch` at rank 16 (importance 0.014
 
 [Figure 11: Top 25 features for log-level prediction, color-coded by type]
 
-The dominance of code-context features is consistent with the ablation finding: context TF-IDF alone achieves 0.907 cross-project F1, while structural features alone achieve 0.460. However, the identity of the top features reveals an important nuance: `ctx:warn`, `ctx:debug`, `ctx:logger debug`, and `ctx:logger warn` are *level names of neighbouring log statements* captured in the +/-5 line context window. The model is partly learning to predict a log statement's level from the levels of nearby log calls. This is a form of context signal - neighbouring levels reflect the code's error-handling structure - but it is a narrower finding than "the model learns arbitrary code patterns." Section 6.2 discusses this as a confound, and Section 3.3.7 describes a level-name-stripped ablation designed to measure how much signal remains after removing these tokens.
+The dominance of code-context features is consistent with the ablation finding: context TF-IDF alone achieves 0.907 cross-project F1, while structural features alone achieve 0.460. However, the identity of the top features reveals the mechanism: `ctx:warn`, `ctx:debug`, `ctx:console log`, `ctx:logger warn`, and `ctx:logger debug` are *level names of neighbouring log statements* captured in the ±5-line context window. The level-name-stripped ablation (Table 4) confirms that this is the dominant signal: removing 56 level-name tokens collapses cross-project F1 from 0.921 to 0.519, only modestly above the structural-only baseline (0.460). The model primarily predicts a log statement's level from the levels of nearby log calls. This is a narrower finding than "the model learns arbitrary code patterns" - the signal is that log levels cluster within files, and this clustering generalises across projects (Section 5.2).
 
 ### 4.9 Part B - Inconsistency Analysis
 
@@ -387,15 +390,17 @@ That said, the scope of this claim matters. Our baselines represent *default* pr
 
 This does not reduce the practical value of the finding. Default rules are what most monitoring pipelines actually run. Showing that ML models trained on historical data outperform those defaults, and identifying *where* they succeed (Section 4.2) and *where they do not* (the sparse-anomaly tail), gives teams concrete guidance on whether ML-based observability is worth the investment.
 
-### 5.2 The Signal Lives in Code Context
+### 5.2 Log Levels Cluster Within Files
 
-The Part B ablation study (Section 4.6) produced the strongest finding of this work: log-level prediction is driven almost entirely by *surrounding code context*, not by *log message content*.
+The Part B ablation study (Section 4.6) produced a nuanced finding about the nature of log-level predictability.
 
-Removing message TF-IDF reduced cross-project F1 by only 0.006 (from 0.928 to 0.921). Conversely, message TF-IDF alone (0.382) performed no better than the keyword heuristic (0.382) on unseen repositories. Context TF-IDF alone achieved 0.907 - within 0.021 of the full model.
+The first-order result is clear: log-level prediction does not depend on log message content. Removing message TF-IDF reduced cross-project F1 by only 0.006 (from 0.928 to 0.921), and message TF-IDF alone (0.382) performed no better than the keyword heuristic (0.382). The signal lives in code context, not message wording.
 
-The ablation rules out log-message keyword matching: the model does not depend on wording like "failed" or "error" in the message string. However, the context TF-IDF *is* a form of token matching - and as Section 4.8 shows, the most predictive context tokens are the level names of neighbouring log calls (`ctx:warn`, `ctx:debug`, etc.). So the model's primary signal is the logging context of the surrounding code: what levels nearby log statements use, what error-handling constructs are present, and what API patterns appear. These context-level patterns generalise across projects because they reflect shared conventions in the Node.js/TypeScript ecosystem. Whether the signal survives after stripping level-name tokens from the context vocabulary is tested in a separate ablation (Section 3.3.7).
+However, the level-name-stripped ablation reveals *what* in the code context the model relies on. Stripping 56 level-name tokens (`warn`, `debug`, `error`, `console`, `logger warn`, etc.) from the context vocabulary collapsed cross-project F1 from 0.921 to 0.519 - only modestly above the structural-only baseline (0.460). The model primarily predicts a log statement's level from the levels of neighbouring log statements in the ±5-line window, not from deeper code-structural patterns such as control flow, variable types, or API call semantics.
 
-Practically, a log-level recommendation tool does not need the log message text - code context alone is enough. This matters when message content contains sensitive data or when the message has not been written yet at the point where a level recommendation would be useful.
+The honest interpretation is that **log levels cluster within files**: a `logger.warn(...)` call is more likely to appear near other warning-level statements, and this clustering pattern generalises across projects in the Node.js/TypeScript ecosystem. This is a weaker claim than "the model learns code structure," but it is still a non-trivial finding - the clustering is consistent enough across 15 independent codebases to support cross-project prediction (0.519 vs. 0.382 for the keyword heuristic even after stripping).
+
+Practically, a log-level recommendation tool that has access to surrounding code - which in real IDE or CI/CD scenarios always includes existing log statements - can still achieve the full 0.921 cross-project F1. The level-name-stripped result constrains the *interpretation* of why the model works, not its practical utility in typical deployment contexts. However, tools deployed in greenfield code (with no pre-existing log statements) would see performance closer to 0.519 than 0.921.
 
 ### 5.3 Inconsistency, Not Error
 
@@ -449,7 +454,7 @@ Construct validity asks whether our measurements actually capture the concepts w
 
 Internal validity asks whether the results are actually caused by the experimental variables or by confounding factors.
 
-**Data leakage in Part B.** A primary concern is whether the model exploits signals that would not be available in a real deployment scenario. We addressed the most obvious leakage risk - log message text co-determined with the log level - through the feature ablation study (Section 4.6), which showed that removing message TF-IDF reduces cross-project F1 by only 0.006. A confirmed form of leakage exists in the code-context TF-IDF: the surrounding code contains *other* log statements at specific levels (e.g., `logger.warn(...)` appearing two lines above a `logger.error(...)` call), and the top features by importance (`ctx:warn`, `ctx:debug`, `ctx:logger warn`) are exactly these neighbouring level names (Section 4.8). The model partly predicts the level of one log statement from the levels of its neighbours. This is arguably a legitimate signal - the surrounding logging context genuinely informs the appropriate level - but it inflates performance relative to a scenario where no prior logging exists in the surrounding code. We address this through a level-name-stripped ablation (Section 3.3.7): removing tokens matching `warn`, `debug`, `error`, `info`, `logger.*`, and `console.*` from the context vocabulary and re-running the cross-project evaluation. If the "no level names" model retains strong performance, the signal is genuinely structural; if it collapses toward the structural-only baseline (0.460), the honest finding is that log levels cluster within files and that clustering generalises.
+**Data leakage in Part B.** A primary concern is whether the model exploits signals that would not be available in a real deployment scenario. We addressed the most obvious leakage risk - log message text co-determined with the log level - through the feature ablation study (Section 4.6), which showed that removing message TF-IDF reduces cross-project F1 by only 0.006. A confirmed and substantial form of leakage exists in the code-context TF-IDF: the surrounding code contains *other* log statements at specific levels (e.g., `logger.warn(...)` appearing two lines above a `logger.error(...)` call), and the top features by importance (`ctx:warn`, `ctx:debug`, `ctx:logger warn`) are exactly these neighbouring level names (Section 4.8). The level-name-stripped ablation (Section 4.6, Table 4) confirms the severity: removing 56 level-name tokens collapsed cross-project F1 from 0.921 to 0.519, only modestly above the structural-only baseline (0.460). The model primarily predicts the level of one log statement from the levels of its neighbours, not from deeper code-structural patterns. This is a legitimate signal in typical deployment scenarios - real code almost always contains existing log statements nearby - but the 0.921 headline number should not be interpreted as evidence that the model has learned to infer appropriate log levels from code semantics alone. The honest characterisation is that log levels cluster within files, and this clustering generalises across the Node.js/TypeScript ecosystem (Section 5.2).
 
 **CSV formatting corruption.** The log-level dataset was serialised as CSV, and code context containing commas and newlines caused row-level corruption. We filtered corrupted rows by retaining only those with valid log levels in {DEBUG, INFO, WARN, ERROR}. This filtering may introduce bias if corrupted rows are systematically different from retained rows - for instance, log statements in more syntactically complex code are likelier to produce problematic characters and be dropped, potentially biasing the dataset toward simpler contexts. We report the number of rows lost to corruption and note that future work should use a format less susceptible to this issue (e.g., JSONL).
 
@@ -483,7 +488,7 @@ These findings support three conclusions:
 
 2. **Per-entity specialisation matters more than algorithm sophistication.** In Part A, the shift from pooled to per-KPI modelling improved F1 from 0.08 to 0.41 - a larger gain than any algorithmic change. In Part B, the model's strength comes from learning project-specific patterns (code structure, function naming, error-handling idioms) rather than from a more powerful classifier. The implication for practice is that observability tools should fit to the specific system they monitor, not apply one-size-fits-all rules.
 
-3. **Code context, not message text, carries the signal for log-level decisions.** The ablation study shows that log-message wording is not needed: removing it drops cross-project F1 by only 0.006. The signal comes from code context, including the levels of neighbouring log statements, error-handling constructs, and API patterns. The level-name-stripped ablation (Section 3.3.7) will determine whether the context signal is broadly structural or primarily driven by neighbouring log levels. Either way, automated log-level recommendation tools should focus on surrounding code, not on the message string.
+3. **Log levels cluster within files, and the clustering generalises.** The ablation study shows that log-message wording is not needed: removing it drops cross-project F1 by only 0.006. The signal comes from code context - but the level-name-stripped ablation reveals that it is primarily the levels of *neighbouring log statements* that drive prediction. Stripping level-name tokens collapsed cross-project F1 from 0.921 to 0.519, only modestly above the structural-only baseline (0.460). The model has learned that log levels cluster within files, and this pattern generalises across 15 independent codebases. This is a weaker claim than "the model learns code structure," but it remains practically useful: in typical deployment scenarios where surrounding code contains existing log statements, the full 0.921 cross-project performance is achievable.
 
 ### Future Work
 
