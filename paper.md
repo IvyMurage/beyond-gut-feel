@@ -12,7 +12,7 @@ Developer intuition benefits from domain knowledge, but it has three structural 
 
 Despite growing interest in AIOps, we have not found a prior study that directly measures the gap between default rule-based practice and machine learning for observability decisions. Existing work on KPI anomaly detection focuses on improving detection algorithms without benchmarking against the static-threshold baselines that teams actually deploy in production. Research on log-level prediction has covered Java and C/C++ codebases but has not, to our knowledge, studied the Node.js/TypeScript ecosystem, evaluated cross-project generalisation by holding out entire repositories, or framed the comparison as an explicit test of developer heuristics against learned models.
 
-This paper presents a two-part empirical study that quantifies the cost of gut-feel observability. In **Part A**, we use the AIOps 2018 KPI Anomaly Detection benchmark - 26 key performance indicators comprising 2.67 million labelled data points - to compare static-threshold baselines against per-KPI machine learning models, measure feature waste through ablation, and explain per-KPI decision surfaces through SHAP analysis. In **Part B**, we mine 16,283 log statements from 15 open-source Node.js and TypeScript repositories, train classifiers to predict the developer-chosen log level from code context, and evaluate generalisation on three entirely unseen projects.
+This paper presents a two-part empirical study that quantifies the cost of gut-feel observability. In **Part A**, we use the AIOps 2018 KPI Anomaly Detection benchmark - 26 key performance indicators comprising 2.67 million labelled data points - to compare static-threshold baselines against per-KPI machine learning models, measure feature waste through ablation, and explain per-KPI decision surfaces through SHAP analysis. In **Part B**, we mine 15,702 log statements from 15 open-source Node.js and TypeScript repositories, train classifiers to predict the developer-chosen log level from code context, and evaluate generalisation on three entirely unseen projects.
 
 Our contributions are:
 
@@ -127,7 +127,7 @@ For each repository, we clone the latest default branch and apply a regex-based 
 - **Structural features**: Boolean indicators for whether the log statement appears inside a `catch` block, `try` block, or conditional statement; whether the enclosing function contains `return` or `throw` statements; the count of variable declarations in the surrounding context; the character length of the log message; and the character length of the full log line.
 - **File type**: Classified as `controller`, `service`, `middleware`, `route`, `model`, `util`, `config`, `test`, or `unknown` based on file path patterns.
 
-After extraction, we filter rows with corrupted CSV formatting (caused by unescaped commas and newlines in code context) by retaining only rows with valid log levels in {DEBUG, INFO, WARN, ERROR} and converting boolean string values to integers. The final dataset contains **16,283 log statements** with the following class distribution: INFO 45.0%, ERROR 28.0%, DEBUG 13.7%, WARN 13.3%.
+After extraction, we filter rows with corrupted CSV formatting (caused by unescaped commas and newlines in code context) by retaining only rows with valid log levels in {DEBUG, INFO, WARN, ERROR} and converting boolean string values to integers. The final dataset contains **15,702 log statements** with the following class distribution: INFO 45.0%, ERROR 28.0%, DEBUG 13.7%, WARN 13.3%.
 
 #### 3.3.2 Feature Engineering
 
@@ -340,10 +340,10 @@ Table 5 reports the cross-project evaluation using the "no message" model (conte
 
 | Test repo | Domain | Samples | Heuristic F1 | XGBoost F1 | Improvement |
 |-----------|--------|---------|-------------|-----------|-------------|
-| Strapi | CMS | ~1,049 | 0.368 | - | - |
-| Immich | Photo management | ~1,140 | 0.374 | - | - |
-| Cal.com | Scheduling | ~1,822 | 0.379 | - | - |
-| **Overall** | - | ~4,011 | 0.380 | **0.892** | **+135%** |
+| Strapi | CMS | 1,063 | 0.368 | - | - |
+| Immich | Photo management | 570 | 0.374 | - | - |
+| Cal.com | Scheduling | 1,822 | 0.379 | - | - |
+| **Overall** | - | **3,455** | 0.380 | **0.892** | **+135%** |
 
 *Note: Per-repo breakdowns should be filled in from a consistent dataset run. Overall figures are from the ablation experiment on the current dataset.*
 
@@ -425,7 +425,7 @@ This study has several limitations:
 
 **Ecosystem scope.** Part B covers only Node.js and TypeScript repositories. Logging conventions in Java, Python, Go, and other ecosystems may differ in ways that affect model transferability. Extending the study to additional ecosystems is future work.
 
-**Dataset size.** The log-level dataset, while drawn from 15 repositories, contains approximately 16,000 statements. Larger datasets from a broader set of repositories would strengthen the generalisability claim.
+**Dataset size.** The log-level dataset, while drawn from 15 repositories, contains approximately 15,700 statements. Larger datasets from a broader set of repositories would strengthen the generalisability claim.
 
 **Ground truth quality.** Developer-chosen log levels serve as ground truth, but as the inconsistency analysis demonstrates, these labels are noisy. There is no external "correct" log level to validate against, which limits our ability to evaluate the model's predictions against an objective standard.
 
@@ -475,7 +475,7 @@ This paper presented a two-part empirical study measuring the cost of rule-based
 
 In **Part A** (KPI anomaly detection), we evaluated static-threshold baselines (μ ± 3σ) and per-KPI machine learning models on the AIOps 2018 benchmark - 26 KPIs comprising 2.67 million labelled data points. ML models outperformed the static threshold on 20 of 22 evaluable KPIs (91%), with 4 additional KPIs excluded due to empty anomaly splits (Table 1). The 2 losses had distinct failure modes: one had too few anomalies (0.03%) for models to learn from, the other saw all approaches perform poorly (best F1 = 0.089), suggesting anomaly patterns outside the feature space. Per-KPI models achieved a mean F1 of 0.41, compared to 0.08 for a pooled model (Section 4.1). Feature ablation revealed that 53% of the multi-window rolling-statistic features could be removed with no loss in detection performance (Table 2), and SHAP analysis confirmed that no single feature ranking generalises across KPIs (Section 4.4, Figures 5-6).
 
-In **Part B** (log-level classification), we mined 16,283 log statements from 15 open-source Node.js and TypeScript repositories and trained classifiers to predict the developer-chosen log level from code context. XGBoost achieved a cross-validated macro F1 of 0.970 (Table 3), compared to 0.379 for a keyword-heuristic baseline. We adopt the "no message" model as our primary result: after removing log-message TF-IDF features, cross-project macro F1 dropped by only 0.005 to 0.892 (Table 4), confirming that the performance is not driven by message wording. A message-only model (cross-project F1 = 0.335) performed worse than the keyword heuristic (0.368). The model generalised to three entirely unseen repositories (Table 5). Error analysis identified systematic inconsistencies in developer log-level choices, where the same structural context received different severity labels across projects (Section 4.9).
+In **Part B** (log-level classification), we mined 15,702 log statements from 15 open-source Node.js and TypeScript repositories and trained classifiers to predict the developer-chosen log level from code context. XGBoost achieved a cross-validated macro F1 of 0.970 (Table 3), compared to 0.379 for a keyword-heuristic baseline. We adopt the "no message" model as our primary result: after removing log-message TF-IDF features, cross-project macro F1 dropped by only 0.005 to 0.892 (Table 4), confirming that the performance is not driven by message wording. A message-only model (cross-project F1 = 0.335) performed worse than the keyword heuristic (0.368). The model generalised to three entirely unseen repositories (Table 5). Error analysis identified systematic inconsistencies in developer log-level choices, where the same structural context received different severity labels across projects (Section 4.9).
 
 These findings support three conclusions:
 
