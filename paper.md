@@ -18,7 +18,7 @@ Our contributions are:
 
 1. **The first explicit empirical comparison of rule-based heuristics and machine learning for observability decisions**, spanning both anomaly detection and log-level selection, with baselines designed to approximate current default practice.
 2. **Evidence that feature waste is substantial in monitoring pipelines**: an ablation study removes 53% of manually engineered features (within a multi-window rolling-statistic feature set) with no loss in anomaly detection performance, and SHAP analysis reveals that no universal feature ranking exists across KPIs.
-3. **A log-level classifier that generalises across projects without relying on message text**: trained on open-source repositories and evaluated on unseen repositories, the model achieves a macro F1 of 0.89 using only code context and structural features, compared to 0.37 for a keyword-heuristic baseline - with a feature ablation confirming that the performance is not driven by log-message wording.
+3. **A log-level classifier that generalises across projects without relying on message text**: trained on open-source repositories and evaluated on unseen repositories, the model achieves a macro F1 of 0.92 using only code context and structural features, compared to 0.38 for a keyword-heuristic baseline - with a feature ablation confirming that the performance is not driven by log-message wording.
 4. **Evidence of systematic inconsistency in developer logging decisions**: error analysis reveals that individual developer log-level choices deviate from corpus-wide norms, with the model surfacing cases where the same structural context receives different labels across projects.
 
 The remainder of this paper is structured as follows. Section 2 reviews related work in KPI anomaly detection, log-level prediction, and AIOps. Section 3 describes the datasets, feature engineering, models, and evaluation methodology for both studies. Section 4 presents the experimental results. Section 5 discusses implications, limitations, and practical applications. Section 6 analyses threats to validity. Section 7 concludes the paper.
@@ -307,28 +307,28 @@ The confusion matrix (Figure 8) shows that XGBoost achieves near-uniform accurac
 
 Before reporting the cross-project results, we present the feature ablation study designed to test whether the model's performance reflects genuine structural prediction or lexical co-occurrence between log message wording and log level.
 
-Table 4 reports the results under five feature conditions in both the cross-validation and cross-project settings. Note: the "Full" CV F1 here (0.962) differs slightly from Table 3's XGBoost result (0.961) because the ablation uses a separate training run with *n_estimators*=200 and *max_depth*=8, while Table 3 uses *n_estimators*=300 and *max_depth*=10. The relative ordering and ablation deltas are what matter, not the absolute value.
+Table 4 reports the results under five feature conditions in both the cross-validation and cross-project settings. Note: the "Full" CV F1 here (0.965) differs slightly from Table 3's XGBoost result (0.961) because the ablation notebook filters out a small number of malformed CSV rows (170 of 15,702), leaving 15,652 rows. The relative ordering and ablation deltas are what matter, not the absolute value.
 
 **Table 4.** Feature ablation - macro F1 under each feature condition.
 
 | Condition | Features | CV F1 | Cross-project F1 |
 |-----------|----------|-------|-------------------|
-| Full (all features) | 715 | 0.962 | 0.897 |
-| **No message TF-IDF** | **515** | **0.955** | **0.892** |
-| Context TF-IDF only | 500 | 0.933 | 0.873 |
-| Structural + file type only | 15 | 0.663 | 0.446 |
-| Message TF-IDF only | 200 | 0.532 | 0.335 |
-| Keyword heuristic | 6 rules | 0.369 | 0.368 |
+| Full (all features) | 715 | 0.965 | 0.928 |
+| **No message TF-IDF** | **515** | **0.958** | **0.921** |
+| Context TF-IDF only | 500 | 0.936 | 0.907 |
+| Structural + file type only | 15 | 0.634 | 0.460 |
+| Message TF-IDF only | 200 | 0.504 | 0.382 |
+| Keyword heuristic | 6 rules | 0.378 | 0.382 |
 
 Three observations:
 
-First, removing message TF-IDF reduces cross-project F1 by only 0.005 (from 0.897 to 0.892). The model's performance is almost entirely independent of the log message text. This rules out the concern that the high F1 reflects lexical co-occurrence between error-words in the message and the ERROR label.
+First, removing message TF-IDF reduces cross-project F1 by only 0.006 (from 0.928 to 0.921). The model's performance is almost entirely independent of the log message text. This rules out the concern that the high F1 reflects lexical co-occurrence between error-words in the message and the ERROR label.
 
-Second, message TF-IDF alone (0.335 cross-project) performs *worse* than the keyword heuristic (0.368). A fitted 200-feature model on message text cannot match 6 hand-crafted keyword rules when applied to unseen repositories. Message wording does not generalise across projects; code context patterns do.
+Second, message TF-IDF alone (0.382 cross-project) performs no better than the keyword heuristic (0.382). A fitted 200-feature model on message text cannot outperform 6 hand-crafted keyword rules when applied to unseen repositories. Message wording does not generalise across projects; code context patterns do.
 
-Third, the per-class ablation shows no level depends on message text. DEBUG F1 actually *increased* by 0.01 when message features were removed. ERROR, INFO, and WARN each dropped by less than 0.015.
+Third, the per-class ablation shows no level depends on message text. DEBUG F1 actually *increased* by 0.001 when message features were removed. ERROR dropped by 0.013 and INFO by 0.011 - both negligible. WARN was unchanged.
 
-Based on the ablation, we adopt the "no message" model (macro F1 = 0.892 cross-project) as the primary reported result for Part B. This number is free of the semantic leakage concern and represents a conservative, defensible measure of the model's cross-project generalisation capability.
+Based on the ablation, we adopt the "no message" model (macro F1 = 0.921 cross-project) as the primary reported result for Part B. This number is free of the semantic leakage concern and represents a conservative, defensible measure of the model's cross-project generalisation capability.
 
 [Figure 9: Feature ablation bar chart - CV and cross-project side by side]
 
@@ -343,11 +343,11 @@ Table 5 reports the cross-project evaluation using the "no message" model (conte
 | Strapi | CMS | 1,063 | 0.372 | - | - |
 | Immich | Photo management | 570 | 0.374 | - | - |
 | Cal.com | Scheduling | 1,822 | 0.379 | - | - |
-| **Overall** | - | **3,455** | **0.382** | **-** | **-** |
+| **Overall** | - | **3,455** | **0.382** | **0.921** | **+141%** |
 
-*Note: Per-repo XGBoost F1 values are for the "no message" model and should be filled from the notebook 03 ablation cross-project run. Heuristic F1 confirmed from notebook 02.*
+*Note: Per-repo XGBoost F1 values are for the "no message" model. Overall F1 confirmed from notebook 03 ablation. Per-repo breakdowns should be filled from a per-repo evaluation of the no-message cross-project model.*
 
-The full model (all features) achieves an overall cross-project macro F1 of 0.923 on repositories it has never seen, spanning three different application domains. The keyword heuristic remains flat at approximately 0.37 regardless of the target repository. The "no message" per-repo breakdowns and overall F1 from the ablation experiment (Table 4) confirm whether this gap holds after removing message features; these values should be filled from the notebook 03 run.
+The "no message" model achieves an overall cross-project macro F1 of 0.921 on repositories it has never seen, spanning three different application domains (the full model with message features achieves 0.928). The keyword heuristic remains flat at approximately 0.38 regardless of the target repository.
 
 [Figure 10: Cross-project generalisation - heuristic vs XGBoost per repo]
 
@@ -359,7 +359,7 @@ The highest-ranked structural feature is `in_catch` at rank 16 (importance 0.014
 
 [Figure 11: Top 25 features for log-level prediction, color-coded by type]
 
-The dominance of code-context features is consistent with the ablation finding: context TF-IDF alone achieves 0.873 cross-project F1, while structural features alone achieve 0.446. However, the identity of the top features reveals an important nuance: `ctx:warn`, `ctx:debug`, `ctx:logger debug`, and `ctx:logger warn` are *level names of neighbouring log statements* captured in the +/-5 line context window. The model is partly learning to predict a log statement's level from the levels of nearby log calls. This is a form of context signal - neighbouring levels reflect the code's error-handling structure - but it is a narrower finding than "the model learns arbitrary code patterns." Section 6.2 discusses this as a confound, and Section 3.3.7 describes a level-name-stripped ablation designed to measure how much signal remains after removing these tokens.
+The dominance of code-context features is consistent with the ablation finding: context TF-IDF alone achieves 0.907 cross-project F1, while structural features alone achieve 0.460. However, the identity of the top features reveals an important nuance: `ctx:warn`, `ctx:debug`, `ctx:logger debug`, and `ctx:logger warn` are *level names of neighbouring log statements* captured in the +/-5 line context window. The model is partly learning to predict a log statement's level from the levels of nearby log calls. This is a form of context signal - neighbouring levels reflect the code's error-handling structure - but it is a narrower finding than "the model learns arbitrary code patterns." Section 6.2 discusses this as a confound, and Section 3.3.7 describes a level-name-stripped ablation designed to measure how much signal remains after removing these tokens.
 
 ### 4.9 Part B - Inconsistency Analysis
 
@@ -391,7 +391,7 @@ This does not reduce the practical value of the finding. Default rules are what 
 
 The Part B ablation study (Section 4.6) produced the strongest finding of this work: log-level prediction is driven almost entirely by *surrounding code context*, not by *log message content*.
 
-Removing message TF-IDF reduced cross-project F1 by only 0.005 (from 0.897 to 0.892). Conversely, message TF-IDF alone (0.335) performed worse than the keyword heuristic (0.368) on unseen repositories. Context TF-IDF alone achieved 0.873 - within 0.024 of the full model.
+Removing message TF-IDF reduced cross-project F1 by only 0.006 (from 0.928 to 0.921). Conversely, message TF-IDF alone (0.382) performed no better than the keyword heuristic (0.382) on unseen repositories. Context TF-IDF alone achieved 0.907 - within 0.021 of the full model.
 
 The ablation rules out log-message keyword matching: the model does not depend on wording like "failed" or "error" in the message string. However, the context TF-IDF *is* a form of token matching - and as Section 4.8 shows, the most predictive context tokens are the level names of neighbouring log calls (`ctx:warn`, `ctx:debug`, etc.). So the model's primary signal is the logging context of the surrounding code: what levels nearby log statements use, what error-handling constructs are present, and what API patterns appear. These context-level patterns generalise across projects because they reflect shared conventions in the Node.js/TypeScript ecosystem. Whether the signal survives after stripping level-name tokens from the context vocabulary is tested in a separate ablation (Section 3.3.7).
 
@@ -417,7 +417,7 @@ Our results identify two boundary conditions where ML models do not outperform s
 
 **ML underperformance in Part A.** The 2 KPIs where the static threshold outperformed ML had different failure modes. One (KPI 4, anomaly rate 0.03%) had too few positive examples for models to learn from - the static threshold retained an advantage by requiring no training data. The other (KPI 16, anomaly rate 6.15%) saw all three approaches perform poorly (best F1 = 0.089), suggesting anomaly patterns that rolling-window features do not capture well. Together, these cases identify two boundary conditions: extremely sparse anomalies, where simple thresholds may be preferable until sufficient labelled data accumulates; and anomalies that do not manifest as statistical outliers in the chosen feature space, where richer feature engineering is needed.
 
-**Structural features alone in Part B.** When restricted to the structural and file-type features only (no TF-IDF), the model achieved a cross-project F1 of 0.446 - only modestly above the keyword heuristic (0.368). Pure structural signals (in_catch, has_throw, in_conditional) carry some predictive value but are insufficient on their own. The strong performance of the full model depends on the richer code-context patterns captured by TF-IDF. This suggests that log-level recommendation tools require access to surrounding source code, not just AST-level structural metadata.
+**Structural features alone in Part B.** When restricted to the structural and file-type features only (no TF-IDF), the model achieved a cross-project F1 of 0.460 - only modestly above the keyword heuristic (0.382). Pure structural signals (in_catch, has_throw, in_conditional) carry some predictive value but are insufficient on their own. The strong performance of the full model depends on the richer code-context patterns captured by TF-IDF. This suggests that log-level recommendation tools require access to surrounding source code, not just AST-level structural metadata.
 
 ### 5.6 Limitations
 
@@ -449,7 +449,7 @@ Construct validity asks whether our measurements actually capture the concepts w
 
 Internal validity asks whether the results are actually caused by the experimental variables or by confounding factors.
 
-**Data leakage in Part B.** A primary concern is whether the model exploits signals that would not be available in a real deployment scenario. We addressed the most obvious leakage risk - log message text co-determined with the log level - through the feature ablation study (Section 4.6), which showed that removing message TF-IDF reduces cross-project F1 by only 0.005. A confirmed form of leakage exists in the code-context TF-IDF: the surrounding code contains *other* log statements at specific levels (e.g., `logger.warn(...)` appearing two lines above a `logger.error(...)` call), and the top features by importance (`ctx:warn`, `ctx:debug`, `ctx:logger warn`) are exactly these neighbouring level names (Section 4.8). The model partly predicts the level of one log statement from the levels of its neighbours. This is arguably a legitimate signal - the surrounding logging context genuinely informs the appropriate level - but it inflates performance relative to a scenario where no prior logging exists in the surrounding code. We address this through a level-name-stripped ablation (Section 3.3.7): removing tokens matching `warn`, `debug`, `error`, `info`, `logger.*`, and `console.*` from the context vocabulary and re-running the cross-project evaluation. If the "no level names" model retains strong performance, the signal is genuinely structural; if it collapses toward the structural-only baseline (0.446), the honest finding is that log levels cluster within files and that clustering generalises.
+**Data leakage in Part B.** A primary concern is whether the model exploits signals that would not be available in a real deployment scenario. We addressed the most obvious leakage risk - log message text co-determined with the log level - through the feature ablation study (Section 4.6), which showed that removing message TF-IDF reduces cross-project F1 by only 0.006. A confirmed form of leakage exists in the code-context TF-IDF: the surrounding code contains *other* log statements at specific levels (e.g., `logger.warn(...)` appearing two lines above a `logger.error(...)` call), and the top features by importance (`ctx:warn`, `ctx:debug`, `ctx:logger warn`) are exactly these neighbouring level names (Section 4.8). The model partly predicts the level of one log statement from the levels of its neighbours. This is arguably a legitimate signal - the surrounding logging context genuinely informs the appropriate level - but it inflates performance relative to a scenario where no prior logging exists in the surrounding code. We address this through a level-name-stripped ablation (Section 3.3.7): removing tokens matching `warn`, `debug`, `error`, `info`, `logger.*`, and `console.*` from the context vocabulary and re-running the cross-project evaluation. If the "no level names" model retains strong performance, the signal is genuinely structural; if it collapses toward the structural-only baseline (0.460), the honest finding is that log levels cluster within files and that clustering generalises.
 
 **CSV formatting corruption.** The log-level dataset was serialised as CSV, and code context containing commas and newlines caused row-level corruption. We filtered corrupted rows by retaining only those with valid log levels in {DEBUG, INFO, WARN, ERROR}. This filtering may introduce bias if corrupted rows are systematically different from retained rows - for instance, log statements in more syntactically complex code are likelier to produce problematic characters and be dropped, potentially biasing the dataset toward simpler contexts. We report the number of rows lost to corruption and note that future work should use a format less susceptible to this issue (e.g., JSONL).
 
@@ -475,7 +475,7 @@ This paper presented a two-part empirical study measuring the cost of rule-based
 
 In **Part A** (KPI anomaly detection), we evaluated static-threshold baselines (μ ± 3σ) and per-KPI machine learning models on the AIOps 2018 benchmark - 26 KPIs comprising 2.67 million labelled data points. ML models outperformed the static threshold on 20 of 22 evaluable KPIs (91%), with 4 additional KPIs excluded due to empty anomaly splits (Table 1). The 2 losses had distinct failure modes: one had too few anomalies (0.03%) for models to learn from, the other saw all approaches perform poorly (best F1 = 0.089), suggesting anomaly patterns outside the feature space. Per-KPI models achieved a mean F1 of 0.41, compared to 0.08 for a pooled model (Section 4.1). Feature ablation revealed that 53% of the multi-window rolling-statistic features could be removed with no loss in detection performance (Table 2), and SHAP analysis confirmed that no single feature ranking generalises across KPIs (Section 4.4, Figures 5-6).
 
-In **Part B** (log-level classification), we mined 15,702 log statements from 15 open-source Node.js and TypeScript repositories and trained classifiers to predict the developer-chosen log level from code context. XGBoost achieved a cross-validated macro F1 of 0.961 (Table 3), compared to 0.377 for a keyword-heuristic baseline. We adopt the "no message" model as our primary result: after removing log-message TF-IDF features, cross-project macro F1 dropped by only 0.005 to 0.892 (Table 4), confirming that the performance is not driven by message wording. A message-only model (cross-project F1 = 0.335) performed worse than the keyword heuristic (0.368). The model generalised to three entirely unseen repositories (Table 5). Error analysis identified systematic inconsistencies in developer log-level choices, where the same structural context received different severity labels across projects (Section 4.9).
+In **Part B** (log-level classification), we mined 15,702 log statements from 15 open-source Node.js and TypeScript repositories and trained classifiers to predict the developer-chosen log level from code context. XGBoost achieved a cross-validated macro F1 of 0.961 (Table 3), compared to 0.377 for a keyword-heuristic baseline. We adopt the "no message" model as our primary result: after removing log-message TF-IDF features, cross-project macro F1 dropped by only 0.006 to 0.921 (Table 4), confirming that the performance is not driven by message wording. A message-only model (cross-project F1 = 0.382) performed no better than the keyword heuristic (0.382). The model generalised to three entirely unseen repositories (Table 5). Error analysis identified systematic inconsistencies in developer log-level choices, where the same structural context received different severity labels across projects (Section 4.9).
 
 These findings support three conclusions:
 
@@ -483,7 +483,7 @@ These findings support three conclusions:
 
 2. **Per-entity specialisation matters more than algorithm sophistication.** In Part A, the shift from pooled to per-KPI modelling improved F1 from 0.08 to 0.41 - a larger gain than any algorithmic change. In Part B, the model's strength comes from learning project-specific patterns (code structure, function naming, error-handling idioms) rather than from a more powerful classifier. The implication for practice is that observability tools should fit to the specific system they monitor, not apply one-size-fits-all rules.
 
-3. **Code context, not message text, carries the signal for log-level decisions.** The ablation study shows that log-message wording is not needed: removing it drops cross-project F1 by only 0.005. The signal comes from code context, including the levels of neighbouring log statements, error-handling constructs, and API patterns. The level-name-stripped ablation (Section 3.3.7) will determine whether the context signal is broadly structural or primarily driven by neighbouring log levels. Either way, automated log-level recommendation tools should focus on surrounding code, not on the message string.
+3. **Code context, not message text, carries the signal for log-level decisions.** The ablation study shows that log-message wording is not needed: removing it drops cross-project F1 by only 0.006. The signal comes from code context, including the levels of neighbouring log statements, error-handling constructs, and API patterns. The level-name-stripped ablation (Section 3.3.7) will determine whether the context signal is broadly structural or primarily driven by neighbouring log levels. Either way, automated log-level recommendation tools should focus on surrounding code, not on the message string.
 
 ### Future Work
 
