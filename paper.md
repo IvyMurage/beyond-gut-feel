@@ -298,7 +298,7 @@ Table 3 reports the 5-fold stratified cross-validation results for all models on
 
 XGBoost achieved the highest macro F1 (0.961), followed closely by Random Forest (0.953). Both substantially outperformed the keyword heuristic (0.377) and Logistic Regression (0.591). Logistic Regression, the simplest ML model tested, still exceeded the heuristic baseline, indicating that even a linear decision boundary over the feature space captures more signal than the hand-crafted rules.
 
-The confusion matrix (Figure 7) shows that XGBoost achieves near-uniform accuracy across all four classes: DEBUG 97.6%, ERROR 97.3%, INFO 98.0%, WARN 96.5%. The most common confusion is INFO -> ERROR (12 cases of 3,257 test samples), followed by ERROR -> INFO (10 cases) and INFO -> WARN (10 cases). The WARN <-> INFO boundary is the fuzziest, consistent with the subjective nature of the distinction between informational and cautionary messages.
+The confusion matrix (Figure 8) shows that XGBoost achieves near-uniform accuracy across all four classes: DEBUG 96.3%, ERROR 94.7%, INFO 97.9%, WARN 96.4%. The most common confusion is ERROR → DEBUG (23 cases of 3,141 test samples), followed by INFO → ERROR (14 cases) and ERROR → WARN (13 cases). The ERROR → DEBUG pattern is notable: these are cases where the model predicts DEBUG for statements that developers labelled ERROR, suggesting potential inconsistency in how error-handling code is logged.
 
 [Figure 7: Model comparison bar chart]
 [Figure 8: Confusion matrix (percentage)]
@@ -340,22 +340,22 @@ Table 5 reports the cross-project evaluation using the "no message" model (conte
 
 | Test repo | Domain | Samples | Heuristic F1 | XGBoost F1 | Improvement |
 |-----------|--------|---------|-------------|-----------|-------------|
-| Strapi | CMS | 1,063 | 0.368 | - | - |
+| Strapi | CMS | 1,063 | 0.372 | - | - |
 | Immich | Photo management | 570 | 0.374 | - | - |
 | Cal.com | Scheduling | 1,822 | 0.379 | - | - |
-| **Overall** | - | **3,455** | 0.380 | **0.892** | **+135%** |
+| **Overall** | - | **3,455** | **0.382** | **-** | **-** |
 
-*Note: Per-repo breakdowns should be filled in from a consistent dataset run. Overall figures are from the ablation experiment on the current dataset.*
+*Note: Per-repo XGBoost F1 values are for the "no message" model and should be filled from the notebook 03 ablation cross-project run. Heuristic F1 confirmed from notebook 02.*
 
-The model achieves an overall macro F1 of 0.892 on repositories it has never seen, spanning three different application domains. The keyword heuristic remains flat at approximately 0.37 regardless of the target repository. Per-repo F1 breakdowns will confirm whether this gap is consistent across all three test repositories or concentrated in specific domains; these values should be filled from the final re-run.
+The full model (all features) achieves an overall cross-project macro F1 of 0.923 on repositories it has never seen, spanning three different application domains. The keyword heuristic remains flat at approximately 0.37 regardless of the target repository. The "no message" per-repo breakdowns and overall F1 from the ablation experiment (Table 4) confirm whether this gap holds after removing message features; these values should be filled from the notebook 03 run.
 
 [Figure 10: Cross-project generalisation - heuristic vs XGBoost per repo]
 
 ### 4.8 Part B - Feature Importance
 
-Random Forest feature importance analysis reveals that code context TF-IDF features dominate log-level prediction. The top 5 features by importance are all code-context terms: `ctx:warn` (0.121), `ctx:debug` (0.087), `ctx:logger debug` (0.060), `ctx:logger warn` (0.058), and `ctx:console log` (0.057).
+Random Forest feature importance analysis reveals that code context TF-IDF features dominate log-level prediction. The top 5 features by importance are all code-context terms: `ctx:warn` (0.114), `ctx:debug` (0.100), `ctx:console log` (0.066), `ctx:logger warn` (0.060), and `ctx:logger debug` (0.056).
 
-The highest-ranked structural feature is `in_catch` at rank 16 (importance 0.018), followed by `line_length` (0.010) and `in_conditional` (0.007). Message content features rank low: the top message feature (`msg:error`) has importance 0.007.
+The highest-ranked structural feature is `in_catch` at rank 16 (importance 0.014), followed by `line_length` (0.012) and `in_conditional` (0.008). Message content features rank low: the top message feature (`msg:error`) has importance 0.007.
 
 [Figure 11: Top 25 features for log-level prediction, color-coded by type]
 
