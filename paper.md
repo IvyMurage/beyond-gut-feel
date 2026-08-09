@@ -290,13 +290,13 @@ Table 3 reports the 5-fold stratified cross-validation results for all models on
 
 | Model | Type | Accuracy | Macro F1 |
 |-------|------|----------|----------|
-| Random guess | Baseline | 0.315 | 0.248 |
-| Keyword heuristic | Heuristic | 0.608 | 0.379 |
-| Logistic Regression | ML | 0.771 ± 0.025 | 0.745 ± 0.030 |
-| Random Forest | ML | 0.964 ± 0.002 | 0.959 ± 0.003 |
-| XGBoost | ML | 0.975 ± 0.002 | 0.970 ± 0.002 |
+| Random guess | Baseline | 0.319 | 0.251 |
+| Keyword heuristic | Heuristic | 0.607 | 0.377 |
+| Logistic Regression | ML | 0.646 ± 0.018 | 0.591 ± 0.028 |
+| Random Forest | ML | 0.958 ± 0.004 | 0.953 ± 0.005 |
+| XGBoost | ML | 0.967 ± 0.003 | 0.961 ± 0.003 |
 
-XGBoost achieved the highest macro F1 (0.970), followed closely by Random Forest (0.959). Both substantially outperformed the keyword heuristic (0.379) and Logistic Regression (0.745). Logistic Regression, the simplest ML model tested, still exceeded the heuristic baseline, indicating that even a linear decision boundary over the feature space captures more signal than the hand-crafted rules.
+XGBoost achieved the highest macro F1 (0.961), followed closely by Random Forest (0.953). Both substantially outperformed the keyword heuristic (0.377) and Logistic Regression (0.591). Logistic Regression, the simplest ML model tested, still exceeded the heuristic baseline, indicating that even a linear decision boundary over the feature space captures more signal than the hand-crafted rules.
 
 The confusion matrix (Figure 7) shows that XGBoost achieves near-uniform accuracy across all four classes: DEBUG 97.6%, ERROR 97.3%, INFO 98.0%, WARN 96.5%. The most common confusion is INFO -> ERROR (12 cases of 3,257 test samples), followed by ERROR -> INFO (10 cases) and INFO -> WARN (10 cases). The WARN <-> INFO boundary is the fuzziest, consistent with the subjective nature of the distinction between informational and cautionary messages.
 
@@ -307,7 +307,7 @@ The confusion matrix (Figure 7) shows that XGBoost achieves near-uniform accurac
 
 Before reporting the cross-project results, we present the feature ablation study designed to test whether the model's performance reflects genuine structural prediction or lexical co-occurrence between log message wording and log level.
 
-Table 4 reports the results under five feature conditions in both the cross-validation and cross-project settings. Note: the "Full" CV F1 here (0.962) differs slightly from Table 3's XGBoost result (0.970) because the ablation uses a separate training run with *n_estimators*=200 and *max_depth*=8, while Table 3 uses *n_estimators*=300 and *max_depth*=10. The relative ordering and ablation deltas are what matter, not the absolute value.
+Table 4 reports the results under five feature conditions in both the cross-validation and cross-project settings. Note: the "Full" CV F1 here (0.962) differs slightly from Table 3's XGBoost result (0.961) because the ablation uses a separate training run with *n_estimators*=200 and *max_depth*=8, while Table 3 uses *n_estimators*=300 and *max_depth*=10. The relative ordering and ablation deltas are what matter, not the absolute value.
 
 **Table 4.** Feature ablation - macro F1 under each feature condition.
 
@@ -475,7 +475,7 @@ This paper presented a two-part empirical study measuring the cost of rule-based
 
 In **Part A** (KPI anomaly detection), we evaluated static-threshold baselines (μ ± 3σ) and per-KPI machine learning models on the AIOps 2018 benchmark - 26 KPIs comprising 2.67 million labelled data points. ML models outperformed the static threshold on 20 of 22 evaluable KPIs (91%), with 4 additional KPIs excluded due to empty anomaly splits (Table 1). The 2 losses had distinct failure modes: one had too few anomalies (0.03%) for models to learn from, the other saw all approaches perform poorly (best F1 = 0.089), suggesting anomaly patterns outside the feature space. Per-KPI models achieved a mean F1 of 0.41, compared to 0.08 for a pooled model (Section 4.1). Feature ablation revealed that 53% of the multi-window rolling-statistic features could be removed with no loss in detection performance (Table 2), and SHAP analysis confirmed that no single feature ranking generalises across KPIs (Section 4.4, Figures 5-6).
 
-In **Part B** (log-level classification), we mined 15,702 log statements from 15 open-source Node.js and TypeScript repositories and trained classifiers to predict the developer-chosen log level from code context. XGBoost achieved a cross-validated macro F1 of 0.970 (Table 3), compared to 0.379 for a keyword-heuristic baseline. We adopt the "no message" model as our primary result: after removing log-message TF-IDF features, cross-project macro F1 dropped by only 0.005 to 0.892 (Table 4), confirming that the performance is not driven by message wording. A message-only model (cross-project F1 = 0.335) performed worse than the keyword heuristic (0.368). The model generalised to three entirely unseen repositories (Table 5). Error analysis identified systematic inconsistencies in developer log-level choices, where the same structural context received different severity labels across projects (Section 4.9).
+In **Part B** (log-level classification), we mined 15,702 log statements from 15 open-source Node.js and TypeScript repositories and trained classifiers to predict the developer-chosen log level from code context. XGBoost achieved a cross-validated macro F1 of 0.961 (Table 3), compared to 0.377 for a keyword-heuristic baseline. We adopt the "no message" model as our primary result: after removing log-message TF-IDF features, cross-project macro F1 dropped by only 0.005 to 0.892 (Table 4), confirming that the performance is not driven by message wording. A message-only model (cross-project F1 = 0.335) performed worse than the keyword heuristic (0.368). The model generalised to three entirely unseen repositories (Table 5). Error analysis identified systematic inconsistencies in developer log-level choices, where the same structural context received different severity labels across projects (Section 4.9).
 
 These findings support three conclusions:
 
