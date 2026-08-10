@@ -2,6 +2,14 @@
 
 ---
 
+## Abstract
+
+Modern software systems rely on observability infrastructure — metrics, logs, and traces — to detect failures and maintain reliability. In practice, key observability decisions are made through untested defaults: static alerting thresholds, keyword-based log-level selection, and monitoring feature sets chosen by convention rather than evaluation. Despite growing interest in AIOps, no prior study has directly measured the gap between these default rule-based practices and machine learning across both anomaly detection and logging decisions.
+
+We present a two-part empirical study quantifying this gap. In Part A, we evaluate static-threshold baselines (μ ± 3σ) against per-KPI machine learning models on the AIOps 2018 benchmark — 26 KPIs comprising 2.67 million labelled data points. ML models outperformed the static threshold on 91% of evaluable KPIs, though absolute performance varied widely (mean F1 = 0.41, median = 0.116), and an ablation study showed that 53% of monitoring features could be removed without degrading detection. SHAP analysis confirmed that no universal feature ranking exists across KPIs. In Part B, we mine 15,702 log statements from 15 open-source Node.js/TypeScript repositories and train classifiers to predict developer-chosen log levels from code context. The model achieves cross-project macro F1 of 0.92 when surrounding code — including existing log statements — is available, compared to 0.38 for a keyword heuristic. However, a level-name-stripped ablation reveals this drops to 0.52 without neighbouring log-level tokens, showing the dominant signal is inter-statement level clustering rather than deeper code-structural patterns. This clustering generalises across 15 independent codebases and 3 unseen test repositories. Our results demonstrate that default observability practices leave substantial performance on the table, while identifying boundary conditions where simple rules remain competitive.
+
+---
+
 ## 1. Introduction
 
 Modern software systems depend on observability infrastructure (metrics, logs, and traces) to detect failures, diagnose incidents, and maintain reliability. As systems grow in scale and complexity, the volume of telemetry data grows with them. The quality of observability decisions - what to monitor, how to detect anomalies, and what severity to assign log statements - directly affects operational effectiveness.
@@ -226,7 +234,7 @@ Switching to per-KPI models - training an independent model for each of the 26 K
 
 We report this negative result because it establishes an empirical fact relevant to monitoring practice: anomaly detection models should be trained per-metric, not per-system. A universal model that treats all KPIs identically is not merely suboptimal - it approaches random performance.
 
-[Figure 2: Per-KPI model comparison heatmap]
+![Figure 2: Per-KPI model comparison — F1 scores for all three approaches across 22 evaluable KPIs (left) and win counts (right).](figures/fig02_per_kpi_comparison.png)
 
 ### 4.2 Part A - ML vs. Static Threshold
 
@@ -247,7 +255,7 @@ Four KPIs (2, 9, 11, 13) were excluded because the time-based 70/30 train/test s
 
 **Supervised vs. unsupervised fairness.** Because the static threshold uses no anomaly labels, a reviewer might reasonably ask whether the ML advantage reflects "supervised beats unsupervised" rather than "ML beats intuition." To address this, we note that Isolation Forest - which is also unsupervised and uses no anomaly labels - was the best-performing model on 10 of the 26 KPIs, demonstrating that unsupervised ML can outperform the threshold on a substantial fraction of KPIs. A full head-to-head breakdown of Isolation Forest vs. static threshold across all 26 KPIs (independent of Random Forest) would strengthen this comparison and is noted as future work.
 
-[Figure 3: Distribution of F1 differences (ML - threshold) across 26 KPIs]
+![Figure 3: Distribution of F1 differences (ML − threshold) across evaluable KPIs.](figures/fig03_f1_difference_distribution.png)
 
 ### 4.3 Part A - Feature Waste
 
@@ -268,7 +276,7 @@ Removing the 10 least-important features (53% of the feature set) *improved* the
 
 We note that this feature set was constructed with multi-window rolling statistics (mean and standard deviation at 3 windows, plus min/max/range at one window), which introduces redundancy by design - rolling mean at window 5 is correlated with rolling mean at window 15. The 53% removal rate therefore reflects redundancy within this specific feature engineering approach, not a universal claim about all monitoring pipelines. Nevertheless, the result demonstrates that adding features without evaluating their marginal contribution can actively harm detection performance through overfitting to noise.
 
-[Figure 4: Ablation curve - F1 vs. number of features removed]
+![Figure 4: Ablation curve — mean F1 vs. number of features removed.](figures/fig04_ablation_curve.png)
 
 ### 4.4 Part A - SHAP: Feature Importance Varies Across KPIs
 
@@ -276,11 +284,11 @@ SHAP analysis of per-KPI models (applied to the best, median, and worst performe
 
 For the 3 representative KPIs, the best performer (KPI 3, F1 = 0.924) relied on `rolling_min_15`, raw `value`, and `lag_1`; the median performer (KPI 19, F1 = 0.116) depended on `rolling_min_15`, `rolling_std_30`, and `rolling_mean_30`; the worst non-zero performer (KPI 15, F1 ~ 0) showed nearly uniform importance across features, with no clear separation - consistent with its near-zero detection performance. The specific feature rankings are shown in Figure 5. The waterfall plot for a correctly detected anomaly in KPI 3 shows how features combine: `rolling_std_5` (+0.14), `rolling_range_15` (+0.12), and `diff_from_mean_5` (+0.10) jointly push the prediction from a base value of 0.5 to a confidence of 0.994.
 
-[Figure 5: SHAP feature importance comparison across 3 representative KPIs]
+![Figure 5: SHAP beeswarm plots for 3 representative KPIs (best, median, worst performer).](figures/fig05_shap_beeswarm.png)
 
 This variation has a direct practical implication: a monitoring configuration that assigns the same feature weights or alerting logic to all KPIs will underweight the most informative signals for some KPIs and overweight noise for others.
 
-[Figure 6: Feature importance heatmap across all evaluable KPIs]
+![Figure 6: Random Forest feature importance heatmap across all evaluable KPIs.](figures/fig_supp_feature_heatmap.png)
 
 ### 4.5 Part B - Log-Level Classification
 
@@ -300,8 +308,9 @@ XGBoost achieved the highest macro F1 (0.961), followed closely by Random Forest
 
 The confusion matrix (Figure 8) shows that XGBoost achieves near-uniform accuracy across all four classes: DEBUG 96.3%, ERROR 94.7%, INFO 97.9%, WARN 96.4%. The most common confusion is ERROR → DEBUG (23 cases of 3,141 test samples), followed by INFO → ERROR (14 cases) and ERROR → WARN (13 cases). The ERROR → DEBUG pattern is notable: these are cases where the model predicts DEBUG for statements that developers labelled ERROR, suggesting potential inconsistency in how error-handling code is logged.
 
-[Figure 7: Model comparison bar chart]
-[Figure 8: Confusion matrix (percentage)]
+![Figure 7: Log-level prediction — model comparison (5-fold stratified CV).](figures/fig07_model_comparison.png)
+
+![Figure 8: Confusion matrix (percentage) for XGBoost log-level classifier.](figures/fig08_confusion_matrix.png)
 
 ### 4.6 Part B - Feature Ablation
 
@@ -333,7 +342,7 @@ Fourth, and most critically, stripping level-name tokens from the context vocabu
 
 Based on the ablation, we adopt the "no message" model (macro F1 = 0.921 cross-project) as the primary reported result for Part B, but we qualify the interpretation: the context signal is dominated by neighbouring log-level tokens rather than broader code patterns (Section 5.2). The model still substantially outperforms the keyword heuristic even after level-name stripping (0.519 vs. 0.382), indicating that some non-trivial structural signal remains.
 
-[Figure 9: Feature ablation bar chart - CV and cross-project side by side]
+![Figure 9: Feature ablation — macro F1 under each condition (CV and cross-project).](figures/fig09_ablation_bar.png)
 
 ### 4.7 Part B - Cross-Project Generalisation
 
@@ -353,7 +362,7 @@ Table 5 reports the cross-project evaluation using the "no message" model (conte
 
 The "no message" model achieves an overall cross-project macro F1 of 0.921 on repositories it has never seen, spanning three different application domains (the full model with message features achieves 0.928). The keyword heuristic remains flat at approximately 0.38 regardless of the target repository. However, as the level-name-stripped row shows, 0.519 is the more conservative estimate of what a model would achieve on greenfield code with no neighbouring log statements — still a +36% improvement over the keyword heuristic, but far below the +141% that the full-context model achieves. Both numbers are true; the deployment context determines which applies.
 
-[Figure 10: Cross-project generalisation - heuristic vs XGBoost per repo]
+![Figure 10: Cross-project generalisation — heuristic vs. XGBoost per unseen repo.](figures/fig10_cross_project.png)
 
 ### 4.8 Part B - Feature Importance
 
@@ -361,7 +370,7 @@ Random Forest feature importance analysis reveals that code context TF-IDF featu
 
 The highest-ranked structural feature is `in_catch` at rank 16 (importance 0.014), followed by `line_length` (0.012) and `in_conditional` (0.008). Message content features rank low: the top message feature (`msg:error`) has importance 0.007.
 
-[Figure 11: Top 25 features for log-level prediction, color-coded by type]
+![Figure 11: Top 25 features for log-level prediction, colour-coded by feature type.](figures/fig11_feature_importance.png)
 
 The dominance of code-context features is consistent with the ablation finding: context TF-IDF alone achieves 0.907 cross-project F1, while structural features alone achieve 0.460. However, the identity of the top features reveals the mechanism: `ctx:warn`, `ctx:debug`, `ctx:console log`, `ctx:logger warn`, and `ctx:logger debug` are *level names of neighbouring log statements* captured in the ±5-line context window. The level-name-stripped ablation (Table 4) confirms that this is the dominant signal: removing 56 level-name tokens collapses cross-project F1 from 0.921 to 0.519, only modestly above the structural-only baseline (0.460). The model primarily predicts a log statement's level from the levels of nearby log calls. This is a narrower finding than "the model learns arbitrary code patterns" - the signal is that log levels cluster within files, and this clustering generalises across projects (Section 5.2).
 
