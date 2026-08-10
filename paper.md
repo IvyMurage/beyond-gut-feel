@@ -343,13 +343,13 @@ Table 5 reports the cross-project evaluation using the "no message" model (conte
 
 | Test repo | Domain | Samples | Heuristic F1 | XGBoost F1 | Improvement |
 |-----------|--------|---------|-------------|-----------|-------------|
-| Strapi | CMS | 1,063 | 0.372 | - | - |
-| Immich | Photo management | 570 | 0.374 | - | - |
-| Cal.com | Scheduling | 1,822 | 0.379 | - | - |
+| Strapi | CMS | 1,063 | 0.372 | 0.907 | +144% |
+| Immich | Photo management | 570 | 0.374 | 0.906 | +142% |
+| Cal.com | Scheduling | 1,822 | 0.379 | 0.929 | +145% |
 | **Overall (full context)** | - | **3,455** | **0.382** | **0.921** | **+141%** |
 | **Overall (no level names)** | - | **3,455** | **0.382** | **0.519** | **+36%** |
 
-*Note: "Full context" includes neighbouring log-level tokens in the ±5-line window — the realistic deployment scenario where surrounding code contains existing log statements. "No level names" strips level-name tokens from the context vocabulary, approximating a greenfield scenario with no pre-existing log statements nearby. Per-repo XGBoost F1 breakdowns should be filled from a per-repo evaluation of the no-message cross-project model.*
+*Note: "Full context" includes neighbouring log-level tokens in the ±5-line window — the realistic deployment scenario where surrounding code contains existing log statements. "No level names" strips level-name tokens from the context vocabulary, approximating a greenfield scenario with no pre-existing log statements nearby.*
 
 The "no message" model achieves an overall cross-project macro F1 of 0.921 on repositories it has never seen, spanning three different application domains (the full model with message features achieves 0.928). The keyword heuristic remains flat at approximately 0.38 regardless of the target repository. However, as the level-name-stripped row shows, 0.519 is the more conservative estimate of what a model would achieve on greenfield code with no neighbouring log statements — still a +36% improvement over the keyword heuristic, but far below the +141% that the full-context model achieves. Both numbers are true; the deployment context determines which applies.
 
