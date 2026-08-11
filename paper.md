@@ -67,7 +67,7 @@ Existing research has advanced anomaly detection algorithms and characterised lo
 
 ### 3.1 Overview
 
-We conduct two complementary empirical studies. Part A evaluates whether machine learning models outperform static-threshold baselines for anomaly detection across heterogeneous KPIs. Part B evaluates whether machine learning models outperform keyword-based heuristics for predicting developer-chosen log levels from source code context. The two parts share a common experimental logic: in each case, we formalise a rule-based approach that approximates current practice, train ML models on the same data, and measure the performance gap. Figure 1 provides an overview of the study design.
+We conduct two complementary empirical studies. Part A evaluates whether machine learning models outperform static-threshold baselines for anomaly detection across heterogeneous KPIs. Part B evaluates whether machine learning models outperform keyword-based heuristics for predicting developer-chosen log levels from source code context. The two parts share a common experimental logic: in each case, we formalise a rule-based approach that approximates current practice, train ML models on the same data, and measure the performance gap. The two parts share a common structure: define a baseline, train ML models on the same data, and measure the gap.
 
 ### 3.2 Part A - KPI Anomaly Detection
 
@@ -396,7 +396,7 @@ These examples illustrate that individual developer log-level choices sometimes 
 
 The main finding is straightforward: learned models substantially outperform the rule-based heuristics that represent current default practice. This holds for both static thresholds in anomaly detection (Section 4.2) and keyword matching in log-level selection (Sections 4.5-4.6).
 
-That said, the scope of this claim matters. Our baselines represent *default* practice, the starting points that tools and teams commonly deploy, not the ceiling of what a skilled engineer could achieve with domain-tuned thresholds or context-aware judgment. The static threshold (u +/- 3 sigma) does not account for seasonal patterns, asymmetric cost preferences, or incident history. The keyword heuristic captures lexical cues and two structural checks but not the control-flow reasoning or domain knowledge that a developer brings. The observed performance gaps measure ML's advantage over *rule-based defaults*, not over *expert human judgment at its best*.
+That said, the scope of this claim matters. Our baselines represent *default* practice, the starting points that tools and teams commonly deploy, not the ceiling of what a skilled engineer could achieve with domain-tuned thresholds or context-aware judgment. The static threshold (μ ± 3σ) does not account for seasonal patterns, asymmetric cost preferences, or incident history. The keyword heuristic captures lexical cues and two structural checks but not the control-flow reasoning or domain knowledge that a developer brings. The observed performance gaps measure ML's advantage over *rule-based defaults*, not over *expert human judgment at its best*.
 
 This does not reduce the practical value of the finding. Default rules are what most monitoring pipelines actually run. Showing that ML models trained on historical data outperform those defaults, and identifying *where* they succeed (Section 4.2) and *where they do not* (the sparse-anomaly tail), gives teams concrete guidance on whether ML-based observability is worth the investment.
 
@@ -496,7 +496,7 @@ These findings support three conclusions:
 
 1. **Default rule-based heuristics leave substantial performance on the table.** Both static thresholds in anomaly detection and keyword-based rules in log-level classification perform well below what learned models achieve on the same data. The gap is large enough to have practical consequences: missed anomalies, inconsistent severity labels, and wasted engineering effort on monitoring features that do not contribute to detection.
 
-2. **Per-entity specialisation matters more than algorithm sophistication.** In Part A, the shift from pooled to per-KPI modelling improved F1 from 0.08 to 0.41 - a larger gain than any algorithmic change. In Part B, the model's strength comes from learning project-specific patterns (code structure, function naming, error-handling idioms) rather than from a more powerful classifier. The implication for practice is that observability tools should fit to the specific system they monitor, not apply one-size-fits-all rules.
+2. **Per-entity specialisation matters more than algorithm sophistication.** In Part A, the shift from pooled to per-KPI modelling improved F1 from 0.08 to 0.41, a larger gain than any algorithmic change. In Part B, the cross-project evaluation shows that logging conventions learned from 12 repositories transfer to 3 unseen repositories, but the ablation reveals this transfer is driven primarily by log-level clustering patterns rather than deeper code-structural learning. The implication for practice is that observability tools should fit to the specific system they monitor, not apply one-size-fits-all rules.
 
 3. **Log levels cluster within files, and the clustering generalises.** The ablation study shows that log-message wording is not needed: removing it drops cross-project F1 by only 0.006. The signal comes from code context - but the level-name-stripped ablation reveals that it is primarily the levels of *neighbouring log statements* that drive prediction. Stripping level-name tokens collapsed cross-project F1 from 0.921 to 0.519, only modestly above the structural-only baseline (0.460). The model has learned that log levels cluster within files, and this pattern generalises across 15 independent codebases. This is a weaker claim than "the model learns code structure," but it remains practically useful: in typical deployment scenarios where surrounding code contains existing log statements, the full 0.921 cross-project performance is achievable.
 
@@ -543,3 +543,26 @@ A replication package with all datasets, notebooks, and trained models will be p
 [15] T. Chen and C. Guestrin, "XGBoost: A Scalable Tree Boosting System," *Proc. KDD*, 2016.
 
 *Note: Full bibliographic entries will be verified and formatted according to the target venue's citation style prior to submission. In-text citations now match: [5] = He (ASE 2018, log descriptions), [6] = Chen & Jiang (EMSE 2017, Apache logging practices), [7] = Zhu (ICSE 2015, learning to log), [8] = Guyon (JMLR 2003, feature selection), [10] = Li/Shang (EMSE 2017, log level suggestion), [11] = Li (ICSE 2021, DeepLV), [12] = Lundberg & Lee (NeurIPS 2017, SHAP).*
+
+## Appendix
+
+**Table A1.** Repositories mined for the log-level dataset (Part B), sorted by sample count. The three test repositories (held out for cross-project evaluation) are marked with *.
+
+| Repository | Domain | Language | Log statements | Split |
+|------------|--------|----------|----------------|-------|
+| n8n | Workflow automation | TypeScript | 4,223 | Train |
+| Medusa | E-commerce platform | TypeScript | 2,209 | Train |
+| Cal.com* | Scheduling | TypeScript | 1,822 | Test |
+| Supabase | Backend-as-a-service | TypeScript | 1,464 | Train |
+| NocoDB | Database platform | TypeScript | 1,356 | Train |
+| Strapi* | Headless CMS | JavaScript | 1,063 | Test |
+| Payload | Headless CMS | TypeScript | 939 | Train |
+| Immich* | Photo management | TypeScript | 570 | Test |
+| Prisma | ORM | TypeScript | 514 | Train |
+| Outline | Wiki / knowledge base | TypeScript | 501 | Train |
+| Directus | Data platform | TypeScript | 487 | Train |
+| NestJS | Server framework | TypeScript | 230 | Train |
+| TypeORM | ORM | TypeScript | 218 | Train |
+| Fastify | Web framework | TypeScript | 65 | Train |
+| Express | Web framework | JavaScript | 41 | Train |
+| **Total** | | | **15,702** | |
